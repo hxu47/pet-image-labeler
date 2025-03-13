@@ -441,6 +441,71 @@ Resources:
             }
           };
 
+  # 6. Get Upload URL Lambda Function
+  GetUploadUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetUploadUrl"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const s3 = new AWS.S3();
+          
+          exports.handler = async (event) => {
+            try {
+              const queryParams = event.queryStringParameters || {};
+              const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
+              
+              // Generate a random unique ID for the image
+              const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+              
+              // Create the key using the image ID and original filename
+              const key = `uploads/${imageId}/${filename}`;
+              
+              // Generate a presigned URL for uploading the file
+              const presignedUrl = s3.getSignedUrl('putObject', {
+                Bucket: process.env.RAW_BUCKET,
+                Key: key,
+                Expires: 300, // URL expires in 5 minutes
+                ContentType: 'image/*'
+              });
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  uploadUrl: presignedUrl,
+                  imageId: imageId,
+                  key: key
+                })
+              };
+            } catch (error) {
+              console.error('Error generating upload URL:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message: 'Error generating upload URL',
+                  error: error.message
+                })
+              };
+            }
+          };
+
 Outputs:
   ImageUploadFunctionArn:
     Description: "ARN of the Image Upload Lambda function"
@@ -471,3 +536,9 @@ Outputs:
     Value: !GetAtt DashboardMetricsFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-DashboardMetricsFunctionArn"
+
+  GetUploadUrlFunctionArn:
+    Description: "ARN of the Get Upload URL Lambda function"
+    Value: !GetAtt GetUploadUrlFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetUploadUrlFunctionArn"

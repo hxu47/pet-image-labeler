@@ -181,71 +181,6 @@ Resources:
       ParentId: !GetAtt PetLabelingAPI.RootResourceId
       PathPart: "upload-url"
 
-  # We need an additional Lambda function for generating presigned URLs
-  GetUploadUrlFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 256
-      Environment:
-        Variables:
-          RAW_BUCKET: !Sub "pet-image-labeling-storage-pet-images-raw"
-      Code:
-        ZipFile: |
-          const AWS = require('aws-sdk');
-          const s3 = new AWS.S3();
-          
-          exports.handler = async (event) => {
-            try {
-              const queryParams = event.queryStringParameters || {};
-              const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
-              
-              // Generate a random unique ID for the image
-              const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-              
-              // Create the key using the image ID and original filename
-              const key = `uploads/${imageId}/${filename}`;
-              
-              // Generate a presigned URL for uploading the file
-              const presignedUrl = s3.getSignedUrl('putObject', {
-                Bucket: process.env.RAW_BUCKET,
-                Key: key,
-                Expires: 300, // URL expires in 5 minutes
-                ContentType: 'image/*'
-              });
-              
-              return {
-                statusCode: 200,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  uploadUrl: presignedUrl,
-                  imageId: imageId,
-                  key: key
-                })
-              };
-            } catch (error) {
-              console.error('Error generating upload URL:', error);
-              return {
-                statusCode: 500,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  message: 'Error generating upload URL',
-                  error: error.message
-                })
-              };
-            }
-          };
-
   # API Gateway Method: GET /upload-url
   GetUploadUrlMethod:
     Type: AWS::ApiGateway::Method
@@ -336,7 +271,7 @@ Resources:
       FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/upload-url"
-
+      
 Outputs:
   ApiURL:
     Description: "URL of the API Gateway"
