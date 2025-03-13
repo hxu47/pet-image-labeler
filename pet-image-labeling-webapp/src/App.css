@@ -1,0 +1,26 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+.card-img-top {
+  max-height: 200px;
+  object-fit: cover;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+.navbar {
+  margin-bottom: 2rem;
+}
+
+.footer {
+  margin-top: 2rem;
+}

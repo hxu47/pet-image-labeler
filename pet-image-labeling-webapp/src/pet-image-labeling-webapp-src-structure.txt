@@ -1,0 +1,26 @@
+.
+├── App.css
+├── App.js
+├── App.test.js
+├── components
+│   ├── Dashboard.js
+│   ├── Header.js
+│   ├── ImageCard.js
+│   ├── LabelForm.js
+│   └── UploadForm.js
+├── config.js
+├── index.css
+├── index.js
+├── logo.svg
+├── pages
+│   ├── DashboardPage.js
+│   ├── LabelingPage.js
+│   └── UploadPage.js
+├── pet-image-labeling-webapp-src-structure.txt
+├── reportWebVitals.js
+├── services
+│   ├── api.js
+│   └── auth.js
+└── setupTests.js
+
+3 directories, 20 files

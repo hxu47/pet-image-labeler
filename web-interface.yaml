@@ -215,7 +215,7 @@ Resources:
       Cluster: !Ref ECSCluster
       TaskDefinition: !Ref WebAppTaskDefinition
       LaunchType: FARGATE
-      DesiredCount: 1
+      DesiredCount: 0
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
