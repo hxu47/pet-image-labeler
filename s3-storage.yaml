@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Storage Layer for Pet Image Labeling System'
+
+Parameters:
+  LambdaStackName:
+    Type: String
+    Description: Name of the Lambda functions CloudFormation stack
+    Default: pet-image-labeling-functions
+    
+Resources:
+  PetImagesRawBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-pet-images-raw"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
+            AllowedOrigins: ['*']  # Tighten this for production
+            MaxAge: 3600
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          # tells S3 to trigger the Lambda function whenever a new object is created in the bucket
+          - Event: s3:ObjectCreated:*
+            Function: !ImportValue 
+              'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
+  
+  PetImagesProcessedBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-pet-images-processed"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET]
+            AllowedOrigins: ['*']  # Tighten this for production
+            MaxAge: 3600
+
+  # Policy for the raw images bucket
+  RawBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PetImagesRawBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowLabRoleAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/LabRole'
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+            Resource: 
+              - !Sub 'arn:aws:s3:::${PetImagesRawBucket}'
+              - !Sub 'arn:aws:s3:::${PetImagesRawBucket}/*'
+
+  # Policy for the processed images bucket
+  ProcessedBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PetImagesProcessedBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowLabRoleAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/LabRole'
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+            Resource: 
+              - !Sub 'arn:aws:s3:::${PetImagesProcessedBucket}'
+              - !Sub 'arn:aws:s3:::${PetImagesProcessedBucket}/*'
+
+Outputs:
+  RawBucketName:
+    Description: "Name of the raw images bucket"
+    Value: !Ref PetImagesRawBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-RawBucketName"
+  
+  ProcessedBucketName:
+    Description: "Name of the processed images bucket"
+    Value: !Ref PetImagesProcessedBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ProcessedBucketName"
+

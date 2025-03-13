@@ -1,0 +1,351 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'API Gateway for Pet Image Labeling System'
+
+Parameters:
+  LambdaStackName:
+    Type: String
+    Description: Name of the Lambda functions CloudFormation stack
+    Default: pet-image-labeling-functions
+  
+  CorsOrigin:
+    Type: String
+    Description: Origin to allow for CORS
+    Default: '*'
+
+Resources:
+  # API Gateway REST API
+  PetLabelingAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-API"
+      Description: "API for Pet Image Labeling System"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource: /images
+  ImagesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !GetAtt PetLabelingAPI.RootResourceId
+      PathPart: "images"
+
+  # API Gateway Method: GET /images
+  GetImagesMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref ImagesResource
+      HttpMethod: GET
+      AuthorizationType: NONE  # We'll add auth later
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-GetImages/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+      
+  # Enable CORS for /images
+  ImagesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref ImagesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /labels
+  LabelsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !GetAtt PetLabelingAPI.RootResourceId
+      PathPart: "labels"
+
+  # API Gateway Method: POST /labels
+  PostLabelsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref LabelsResource
+      HttpMethod: POST
+      AuthorizationType: NONE  # We'll add auth later
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-SubmitLabels/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /labels
+  LabelsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref LabelsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /metrics
+  MetricsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !GetAtt PetLabelingAPI.RootResourceId
+      PathPart: "metrics"
+
+  # API Gateway Method: GET /metrics
+  GetMetricsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref MetricsResource
+      HttpMethod: GET
+      AuthorizationType: NONE  # We'll add auth later
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-DashboardMetrics/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /metrics
+  MetricsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref MetricsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /upload-url
+  UploadUrlResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !GetAtt PetLabelingAPI.RootResourceId
+      PathPart: "upload-url"
+
+  # We need an additional Lambda function for generating presigned URLs
+  GetUploadUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          RAW_BUCKET: !Sub "pet-image-labeling-storage-pet-images-raw"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const s3 = new AWS.S3();
+          
+          exports.handler = async (event) => {
+            try {
+              const queryParams = event.queryStringParameters || {};
+              const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
+              
+              // Generate a random unique ID for the image
+              const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+              
+              // Create the key using the image ID and original filename
+              const key = `uploads/${imageId}/${filename}`;
+              
+              // Generate a presigned URL for uploading the file
+              const presignedUrl = s3.getSignedUrl('putObject', {
+                Bucket: process.env.RAW_BUCKET,
+                Key: key,
+                Expires: 300, // URL expires in 5 minutes
+                ContentType: 'image/*'
+              });
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  uploadUrl: presignedUrl,
+                  imageId: imageId,
+                  key: key
+                })
+              };
+            } catch (error) {
+              console.error('Error generating upload URL:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message: 'Error generating upload URL',
+                  error: error.message
+                })
+              };
+            }
+          };
+
+  # API Gateway Method: GET /upload-url
+  GetUploadUrlMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UploadUrlResource
+      HttpMethod: GET
+      AuthorizationType: NONE  # We'll add auth later
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-GetUploadUrl/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /upload-url
+  UploadUrlOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UploadUrlResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - GetImagesMethod
+      - ImagesOptionsMethod
+      - PostLabelsMethod
+      - LabelsOptionsMethod
+      - GetMetricsMethod
+      - MetricsOptionsMethod
+      - GetUploadUrlMethod
+      - UploadUrlOptionsMethod
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      StageName: prod
+
+  # Lambda permissions for API Gateway
+  GetImagesPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-GetImages"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/images"
+
+  SubmitLabelsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-SubmitLabels"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/POST/labels"
+
+  DashboardMetricsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-DashboardMetrics"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/metrics"
+
+  GetUploadUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/upload-url"
+
+Outputs:
+  ApiURL:
+    Description: "URL of the API Gateway"
+    Value: !Sub "https://${PetLabelingAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiURL"
+  
+  ApiId:
+    Description: "ID of the API Gateway"
+    Value: !Ref PetLabelingAPI
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiId"

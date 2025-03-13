@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DynamoDB Tables for Pet Image Labeling System'
+
+Resources:
+  # Table to store user information
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Users"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  # Table to store image metadata and labels
+  ImagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Images"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: imageId
+          AttributeType: S
+        - AttributeName: uploadedBy
+          AttributeType: S
+        - AttributeName: labelStatus
+          AttributeType: S
+      KeySchema:
+        - AttributeName: imageId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserImagesIndex
+          KeySchema:
+            - AttributeName: uploadedBy
+              KeyType: HASH
+            - AttributeName: imageId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: LabelStatusIndex
+          KeySchema:
+            - AttributeName: labelStatus
+              KeyType: HASH
+            - AttributeName: imageId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # Table to store labels applied to images
+  LabelsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-Labels"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: imageId
+          AttributeType: S
+        - AttributeName: labelId
+          AttributeType: S
+        - AttributeName: labelType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: imageId
+          KeyType: HASH
+        - AttributeName: labelId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: LabelTypeIndex
+          KeySchema:
+            - AttributeName: labelType
+              KeyType: HASH
+            - AttributeName: imageId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+Outputs:
+  UsersTableName:
+    Description: "Name of the Users table"
+    Value: !Ref UsersTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersTableName"
+  
+  ImagesTableName:
+    Description: "Name of the Images table"
+    Value: !Ref ImagesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-ImagesTableName"
+  
+  LabelsTableName:
+    Description: "Name of the Labels table"
+    Value: !Ref LabelsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-LabelsTableName"

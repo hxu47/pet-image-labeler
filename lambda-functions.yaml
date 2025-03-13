@@ -1,0 +1,473 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Lambda Functions for Pet Image Labeling System'
+
+Parameters:
+  S3StorageStackName:
+    Type: String
+    Description: Name of the S3 storage CloudFormation stack
+    Default: pet-image-labeling-storage
+  
+  DynamoDBStackName:
+    Type: String
+    Description: Name of the DynamoDB CloudFormation stack
+    Default: pet-image-labeling-database
+
+Resources:
+  # 1. Image Upload Handler Lambda Function
+  ImageUploadFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ImageUpload"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
+          PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const s3 = new AWS.S3();
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+            try {
+              // Get the object from the event
+              const bucket = event.Records[0].s3.bucket.name;
+              const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+              
+              console.log(`Processing new image upload: ${key} from bucket: ${bucket}`);
+              
+              // Get the image
+              const imageData = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+              
+              // For now, just store metadata without image processing
+              // In production we would resize the image here
+              
+              // Create a record in DynamoDB
+              const imageId = key.split('/').pop().split('.')[0];
+              const params = {
+                TableName: process.env.IMAGES_TABLE,
+                Item: {
+                  imageId: imageId,
+                  originalKey: key,
+                  thumbnailKey: key, // Using same key for demo
+                  uploadedAt: new Date().toISOString(),
+                  uploadedBy: 'system', // This would be replaced with actual user ID
+                  labelStatus: 'unlabeled',
+                  contentType: imageData.ContentType || 'image/jpeg'
+                }
+              };
+              
+              await dynamodb.put(params).promise();
+              
+              return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'Image processed successfully', imageId: imageId })
+              };
+            } catch (error) {
+              console.error('Error processing image:', error);
+              return {
+                statusCode: 500,
+                body: JSON.stringify({ message: 'Error processing image', error: error.message })
+              };
+            }
+          };
+
+  # S3 event notification for image uploads
+  ImageUploadEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ImageUploadFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${S3StorageStackName}-pet-images-raw"
+
+  # 2. Get Images API Handler Lambda Function
+  GetImagesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetImages"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const s3 = new AWS.S3();
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+
+          exports.handler = async (event) => {
+            try {
+              // Parse query parameters
+              const queryParams = event.queryStringParameters || {};
+              const labelStatus = queryParams.status || 'unlabeled';
+              const limit = parseInt(queryParams.limit) || 10;
+              
+              // Query DynamoDB for images with the specified label status
+              const params = {
+                TableName: process.env.IMAGES_TABLE,
+                IndexName: 'LabelStatusIndex',
+                KeyConditionExpression: 'labelStatus = :status',
+                ExpressionAttributeValues: {
+                  ':status': labelStatus
+                },
+                Limit: limit
+              };
+              
+              const result = await dynamodb.query(params).promise();
+              
+              // Generate presigned URLs for each image
+              const imagesWithUrls = await Promise.all(result.Items.map(async (image) => {
+                const thumbnailUrl = s3.getSignedUrl('getObject', {
+                  Bucket: process.env.PROCESSED_BUCKET,
+                  Key: image.thumbnailKey,
+                  Expires: 3600 // URL expires in 1 hour
+                });
+                
+                return {
+                  ...image,
+                  thumbnailUrl
+                };
+              }));
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*', // Adjust for production
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(imagesWithUrls)
+              };
+            } catch (error) {
+              console.error('Error getting images:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*', // Adjust for production
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'Error retrieving images', error: error.message })
+              };
+            }
+          };
+
+  # 3. Submit Labels API Handler Lambda Function
+  SubmitLabelsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-SubmitLabels"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+            try {
+              // Parse request body
+              const requestBody = JSON.parse(event.body);
+              const { imageId, labels, labeledBy } = requestBody;
+              
+              if (!imageId || !labels || !Array.isArray(labels)) {
+                return {
+                  statusCode: 400,
+                  headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ message: 'Invalid request parameters' })
+                };
+              }
+              
+              // Insert each label into the Labels table
+              const labelPromises = labels.map(label => {
+                const labelId = new Date().getTime().toString(); // Simple ID generation
+                return dynamodb.put({
+                  TableName: process.env.LABELS_TABLE,
+                  Item: {
+                    imageId,
+                    labelId,
+                    labelType: label.type,
+                    labelValue: label.value,
+                    confidence: label.confidence || 1.0,
+                    labeledBy,
+                    labeledAt: new Date().toISOString()
+                  }
+                }).promise();
+              });
+              
+              await Promise.all(labelPromises);
+              
+              // Update image status to 'labeled'
+              await dynamodb.update({
+                TableName: process.env.IMAGES_TABLE,
+                Key: { imageId },
+                UpdateExpression: 'SET labelStatus = :status, lastLabeledAt = :time, lastLabeledBy = :user',
+                ExpressionAttributeValues: {
+                  ':status': 'labeled',
+                  ':time': new Date().toISOString(),
+                  ':user': labeledBy
+                }
+              }).promise();
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'Labels submitted successfully' })
+              };
+            } catch (error) {
+              console.error('Error submitting labels:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'Error submitting labels', error: error.message })
+              };
+            }
+          };
+
+  # 4. User Management Handler Lambda Function
+  UserManagementFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-UserManagement"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          USERS_TABLE: !Sub "${DynamoDBStackName}-Users"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+            try {
+              const { httpMethod, path, body } = event;
+              const pathSegments = path.split('/');
+              const resourceType = pathSegments[1]; // 'users'
+              const resourceId = pathSegments[2]; // userId if present
+              
+              // Handle different HTTP methods
+              if (httpMethod === 'GET' && resourceType === 'users' && resourceId) {
+                // Get a specific user
+                const result = await dynamodb.get({
+                  TableName: process.env.USERS_TABLE,
+                  Key: { userId: resourceId }
+                }).promise();
+                
+                return {
+                  statusCode: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(result.Item || {})
+                };
+              } else if (httpMethod === 'GET' && resourceType === 'users') {
+                // List all users
+                const result = await dynamodb.scan({
+                  TableName: process.env.USERS_TABLE
+                }).promise();
+                
+                return {
+                  statusCode: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(result.Items || [])
+                };
+              } else if (httpMethod === 'POST' && resourceType === 'users') {
+                // Create a new user
+                const userData = JSON.parse(body);
+                
+                if (!userData.userId || !userData.username) {
+                  return {
+                    statusCode: 400,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'userId and username are required' })
+                  };
+                }
+                
+                await dynamodb.put({
+                  TableName: process.env.USERS_TABLE,
+                  Item: {
+                    userId: userData.userId,
+                    username: userData.username,
+                    email: userData.email || '',
+                    role: userData.role || 'labeler',
+                    createdAt: new Date().toISOString()
+                  }
+                }).promise();
+                
+                return {
+                  statusCode: 201,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: 'User created successfully' })
+                };
+              } else {
+                return {
+                  statusCode: 400,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: 'Unsupported method or resource' })
+                };
+              }
+            } catch (error) {
+              console.error('Error in user management:', error);
+              return {
+                statusCode: 500,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Internal server error', error: error.message })
+              };
+            }
+          };
+          
+  # 5. Dashboard Metrics Handler Lambda Function
+  DashboardMetricsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-DashboardMetrics"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB.DocumentClient();
+          
+          exports.handler = async (event) => {
+            try {
+              // Get total counts from Images table
+              const imagesResult = await dynamodb.scan({
+                TableName: process.env.IMAGES_TABLE,
+                Select: 'COUNT'
+              }).promise();
+              
+              const totalImages = imagesResult.Count;
+              
+              // Get counts by label status
+              const labeledImagesResult = await dynamodb.scan({
+                TableName: process.env.IMAGES_TABLE,
+                FilterExpression: 'labelStatus = :status',
+                ExpressionAttributeValues: {
+                  ':status': 'labeled'
+                },
+                Select: 'COUNT'
+              }).promise();
+              
+              const labeledImages = labeledImagesResult.Count;
+              const unlabeledImages = totalImages - labeledImages;
+              
+              // Get label type distribution
+              const labelsResult = await dynamodb.scan({
+                TableName: process.env.LABELS_TABLE,
+                ProjectionExpression: 'labelType, labelValue'
+              }).promise();
+              
+              // Calculate label type distribution
+              const labelTypeDistribution = {};
+              labelsResult.Items.forEach(item => {
+                if (!labelTypeDistribution[item.labelType]) {
+                  labelTypeDistribution[item.labelType] = {
+                    total: 0,
+                    values: {}
+                  };
+                }
+                
+                labelTypeDistribution[item.labelType].total += 1;
+                
+                if (!labelTypeDistribution[item.labelType].values[item.labelValue]) {
+                  labelTypeDistribution[item.labelType].values[item.labelValue] = 0;
+                }
+                
+                labelTypeDistribution[item.labelType].values[item.labelValue] += 1;
+              });
+              
+              // Prepare dashboard metrics
+              const metrics = {
+                totalImages,
+                labeledImages,
+                unlabeledImages,
+                completionPercentage: totalImages > 0 ? (labeledImages / totalImages * 100).toFixed(2) : 0,
+                labelTypeDistribution
+              };
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(metrics)
+              };
+            } catch (error) {
+              console.error('Error generating dashboard metrics:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Access-Control-Allow-Origin': '*',
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'Error generating metrics', error: error.message })
+              };
+            }
+          };
+
+Outputs:
+  ImageUploadFunctionArn:
+    Description: "ARN of the Image Upload Lambda function"
+    Value: !GetAtt ImageUploadFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ImageUploadFunctionArn"
+  
+  GetImagesFunctionArn:
+    Description: "ARN of the Get Images Lambda function"
+    Value: !GetAtt GetImagesFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetImagesFunctionArn"
+  
+  SubmitLabelsFunctionArn:
+    Description: "ARN of the Submit Labels Lambda function"
+    Value: !GetAtt SubmitLabelsFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-SubmitLabelsFunctionArn"
+  
+  UserManagementFunctionArn:
+    Description: "ARN of the User Management Lambda function"
+    Value: !GetAtt UserManagementFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UserManagementFunctionArn"
+  
+  DashboardMetricsFunctionArn:
+    Description: "ARN of the Dashboard Metrics Lambda function"
+    Value: !GetAtt DashboardMetricsFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-DashboardMetricsFunctionArn"
