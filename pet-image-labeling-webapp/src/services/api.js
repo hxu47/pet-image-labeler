@@ -44,7 +44,8 @@ export const imageApi = {
         url: uploadUrl,
         data: file,
         headers: {
-          'Content-Type': file.type
+          'Content-Type': file.type,
+          'Access-Control-Allow-Origin': '*'
         },
         // Don't transform the request body
         transformRequest: [(data) => data]
