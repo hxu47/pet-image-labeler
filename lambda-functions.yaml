@@ -37,7 +37,6 @@ Resources:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: "image-processor.zip"
 
-
   # S3 event notification for image uploads
   ImageUploadEventPermission:
     Type: AWS::Lambda::Permission

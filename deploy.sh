@@ -53,7 +53,7 @@ echo "Deploying Lambda functions..."
 aws cloudformation deploy \
   --template-file lambda-functions.yaml \
   --stack-name pet-image-labeling-functions \
-  --parameter-overrides DynamoDBStackName=pet-image-labeling-database LambdaCodeBucket=$LAMBDA_BUCKET
+  --parameter-overrides DynamoDBStackName=pet-image-labeling-database LambdaCodeBucket=$LAMBDA_CODE_BUCKET
 
 # 3. Deploy S3 storage
 echo "Deploying S3 storage..."
