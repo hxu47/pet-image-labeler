@@ -30,9 +30,10 @@ Resources:
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
       Code:
         ZipFile: |
-          const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+          const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
           const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
           const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+          const sharp = require('sharp');
           
           exports.handler = async (event) => {
             try {
@@ -51,18 +52,64 @@ Resources:
               const getObjectCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
               const imageData = await s3Client.send(getObjectCommand);
               
+              // Extract image buffer
+              const imageBuffer = await imageData.Body.transformToByteArray();
+              
+              // Generate thumbnail using Sharp
+              // Create a 300px wide thumbnail while maintaining aspect ratio
+              const thumbnailBuffer = await sharp(imageBuffer)
+                .resize({
+                  width: 300,
+                  height: 300,
+                  fit: 'inside',
+                  withoutEnlargement: true
+                })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+              
+              // Extract metadata for logging purposes
+              const metadata = await sharp(imageBuffer).metadata();
+              console.log(`Image metadata: ${JSON.stringify({
+                format: metadata.format,
+                width: metadata.width,
+                height: metadata.height,
+                size: imageBuffer.length
+              })}`);
+              
+              // Create processed keys for different versions
+              const baseName = key.split('/').pop();
+              const folderPath = key.substring(0, key.lastIndexOf('/') + 1);
+              const thumbnailKey = `${folderPath}thumbnails/${baseName}`;
+              
+              // Upload thumbnail to processed bucket
+              const putThumbnailCommand = new PutObjectCommand({
+                Bucket: process.env.PROCESSED_BUCKET,
+                Key: thumbnailKey,
+                Body: thumbnailBuffer,
+                ContentType: 'image/jpeg'
+              });
+              
+              await s3Client.send(putThumbnailCommand);
+              console.log(`Thumbnail created in processed bucket: ${thumbnailKey}`);
+              
               // Create a record in DynamoDB
-              const imageId = key.split('/').pop().split('.')[0];
+              const imageId = baseName.split('.')[0];
               const putCommand = new PutCommand({
                 TableName: process.env.IMAGES_TABLE,
                 Item: {
                   imageId: imageId,
                   originalKey: key,
-                  thumbnailKey: key, // Using same key for demo
+                  thumbnailKey: thumbnailKey,
                   uploadedAt: new Date().toISOString(),
                   uploadedBy: 'system', // This would be replaced with actual user ID
                   labelStatus: 'unlabeled',
-                  contentType: imageData.ContentType || 'image/jpeg'
+                  contentType: imageData.ContentType || 'image/jpeg',
+                  metadata: {
+                    width: metadata.width,
+                    height: metadata.height,
+                    format: metadata.format,
+                    size: imageBuffer.length
+                  }
                 }
               });
               
@@ -70,7 +117,12 @@ Resources:
               
               return {
                 statusCode: 200,
-                body: JSON.stringify({ message: 'Image processed successfully', imageId: imageId })
+                body: JSON.stringify({ 
+                  message: 'Image processed successfully', 
+                  imageId: imageId,
+                  originalSize: `${metadata.width}x${metadata.height}`,
+                  thumbnailSize: '300px max dimension'
+                })
               };
             } catch (error) {
               console.error('Error processing image:', error);
