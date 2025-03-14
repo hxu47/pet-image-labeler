@@ -25,8 +25,7 @@ aws cloudformation deploy \
 API_URL=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-api --query "Stacks[0].Outputs[?OutputKey=='ApiURL'].OutputValue" --output text)
 
 # Update config.js with the API URL
-echo "export const config = { apiUrl: '$API_URL' };" > PET-IMAGE-LABELING-WEBAPP/src/config.js
-
+echo "export const config = { apiUrl: '$API_URL' };" > pet-image-labeling-webapp/src/config.js
 
 # 5. Deploy web interface
 aws cloudformation deploy \
@@ -39,7 +38,7 @@ aws cloudformation deploy \
 ECR_REPO=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='ECRRepositoryURI'].OutputValue" --output text)
 
 # Build and push the Docker image
-cd PET-IMAGE-LABELING-WEBAPP
+cd pet-image-labeling-webapp
 docker build -t $ECR_REPO:latest .
 docker push $ECR_REPO:latest
 
