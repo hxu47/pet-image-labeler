@@ -71,9 +71,8 @@ docker push $ECR_REPO:latest
 
 cd ..
 
-# Update the ECS service
-echo "Updating ECS service..."
-aws ecs update-service --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --force-new-deployment
+# Update the ECS service to use the new image and set desired count to 1
+aws ecs update-service --no-cli-pager --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --desired-count 1
 
 echo "Deployment complete. Application should be available soon at the load balancer URL:"
 aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='WebAppURL'].OutputValue" --output text
