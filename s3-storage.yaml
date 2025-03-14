@@ -17,7 +17,6 @@ Resources:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
             AllowedOrigins: ['*']  # In production, restrict this to your domain
-            ExposeHeaders: ['ETag', 'x-amz-server-side-encryption', 'x-amz-request-id', 'x-amz-id-2']
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled
