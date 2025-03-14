@@ -4,6 +4,22 @@ set -e # Exit immediately if a command fails
 echo "Cleaning up Docker resources to free space..."
 docker system prune -a -f
 
+# Package the image processor Lambda
+echo "Packaging image processor Lambda function..."
+cd image-processor
+npm install
+zip -r ../image-processor.zip .
+cd ..
+
+echo "Uploading Lambda package to S3..."
+# Create a temporary S3 bucket for Lambda code if it doesn't exist
+LAMBDA_BUCKET="pet-image-labeling-lambda-packages-$(aws sts get-caller-identity --query Account --output text)"
+aws s3api head-bucket --bucket $LAMBDA_BUCKET 2>/dev/null || aws s3 mb s3://$LAMBDA_BUCKET
+
+# Upload the Lambda package
+aws s3 cp image-processor.zip s3://$LAMBDA_BUCKET/
+
+
 # 1. Deploy DynamoDB tables
 echo "Deploying DynamoDB tables..."
 aws cloudformation deploy \
@@ -15,7 +31,7 @@ echo "Deploying Lambda functions..."
 aws cloudformation deploy \
   --template-file lambda-functions.yaml \
   --stack-name pet-image-labeling-functions \
-  --parameter-overrides DynamoDBStackName=pet-image-labeling-database
+  --parameter-overrides DynamoDBStackName=pet-image-labeling-database LambdaCodeBucket=$LAMBDA_BUCKET
 
 # 3. Deploy S3 storage
 echo "Deploying S3 storage..."
