@@ -25,20 +25,39 @@ export const imageApi = {
   // Upload a new image
   uploadImage: async (file) => {
     try {
+      console.log('Requesting presigned URL for:', file.name);
+      
       // Get a presigned URL for S3 upload
-      const presignedUrlResponse = await apiClient.get(`/upload-url?filename=${file.name}`);
+      const presignedUrlResponse = await apiClient.get(`/upload-url?filename=${encodeURIComponent(file.name)}`);
+      console.log('Received response:', presignedUrlResponse.data);
+      
       const { uploadUrl, imageId } = presignedUrlResponse.data;
       
+      if (!uploadUrl) {
+        throw new Error('No upload URL received from server');
+      }
+      
       // Upload directly to S3 using the presigned URL
-      await axios.put(uploadUrl, file, {
+      console.log('Uploading to S3 with presigned URL');
+      const uploadResponse = await axios({
+        method: 'PUT',
+        url: uploadUrl,
+        data: file,
         headers: {
           'Content-Type': file.type
-        }
+        },
+        // Don't transform the request body
+        transformRequest: [(data) => data]
       });
       
+      console.log('S3 upload response:', uploadResponse);
       return { imageId };
     } catch (error) {
       console.error('Error uploading image:', error);
+      // Log more details about the error
+      if (error.response) {
+        console.error('Server responded with:', error.response.status, error.response.data);
+      }
       throw error;
     }
   },

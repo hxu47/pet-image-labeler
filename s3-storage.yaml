@@ -6,7 +6,7 @@ Parameters:
     Type: String
     Description: Name of the Lambda functions CloudFormation stack
     Default: pet-image-labeling-functions
-    
+
 Resources:
   PetImagesRawBucket:
     Type: AWS::S3::Bucket
@@ -16,7 +16,8 @@ Resources:
         CorsRules:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
-            AllowedOrigins: ['*']  # Tighten this for production
+            AllowedOrigins: ['*']  # In production, restrict this to your domain
+            ExposeHeaders: ['ETag', 'x-amz-server-side-encryption', 'x-amz-request-id', 'x-amz-id-2']
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled

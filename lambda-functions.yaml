@@ -458,11 +458,14 @@ Resources:
         ZipFile: |
           const AWS = require('aws-sdk');
           const s3 = new AWS.S3();
-          
+
           exports.handler = async (event) => {
+            console.log('Event received:', JSON.stringify(event));
             try {
               const queryParams = event.queryStringParameters || {};
               const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
+              
+              console.log('Generating presigned URL for filename:', filename);
               
               // Generate a random unique ID for the image
               const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
@@ -470,18 +473,27 @@ Resources:
               // Create the key using the image ID and original filename
               const key = `uploads/${imageId}/${filename}`;
               
+              // Get bucket name from environment variable
+              const bucketName = process.env.RAW_BUCKET;
+              console.log('Bucket:', bucketName);
+              console.log('Key:', key);
+              
               // Generate a presigned URL for uploading the file
               const presignedUrl = s3.getSignedUrl('putObject', {
-                Bucket: process.env.RAW_BUCKET,
+                Bucket: bucketName,
                 Key: key,
                 Expires: 300, // URL expires in 5 minutes
                 ContentType: 'image/*'
               });
               
+              console.log('Generated presigned URL (truncated):', presignedUrl.substring(0, 50) + '...');
+              
               return {
                 statusCode: 200,
                 headers: {
                   'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                  'Access-Control-Allow-Methods': 'GET,OPTIONS,PUT,POST',
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -496,6 +508,8 @@ Resources:
                 statusCode: 500,
                 headers: {
                   'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                  'Access-Control-Allow-Methods': 'GET,OPTIONS,PUT,POST',
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
