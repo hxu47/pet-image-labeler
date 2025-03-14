@@ -11,13 +11,35 @@ npm install
 zip -r ../image-processor.zip .
 cd ..
 
-echo "Uploading Lambda package to S3..."
-# Create a temporary S3 bucket for Lambda code if it doesn't exist
-LAMBDA_BUCKET="pet-image-labeling-lambda-packages-$(aws sts get-caller-identity --query Account --output text)"
-aws s3api head-bucket --bucket $LAMBDA_BUCKET 2>/dev/null || aws s3 mb s3://$LAMBDA_BUCKET
+# Create a CloudFormation stack for the Lambda code bucket
+echo "Creating Lambda code bucket via CloudFormation..."
+cat > lambda-code-bucket.yaml << EOF
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: pet-image-labeling-lambda-packages
+      VersioningConfiguration:
+        Status: Enabled
+Outputs:
+  BucketName:
+    Description: "Lambda code bucket name"
+    Value: !Ref LambdaCodeBucket
+EOF
+
+# Deploy the bucket
+aws cloudformation deploy \
+  --template-file lambda-code-bucket.yaml \
+  --stack-name pet-image-labeling-lambda-bucket
+
+# Get the bucket name
+LAMBDA_CODE_BUCKET=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-lambda-bucket --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
+echo "Lambda code bucket: $LAMBDA_CODE_BUCKET"
 
 # Upload the Lambda package
-aws s3 cp image-processor.zip s3://$LAMBDA_BUCKET/
+echo "Uploading Lambda package to S3..."
+aws s3 cp image-processor.zip s3://$LAMBDA_CODE_BUCKET/
 
 
 # 1. Deploy DynamoDB tables
