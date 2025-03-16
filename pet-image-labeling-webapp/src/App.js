@@ -13,6 +13,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
+import DevLogin from './components/DevLogin';  // for local testing
+
 
 function App() {
   return (
@@ -26,7 +28,10 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
-              
+              {/*for local testing*/}
+              {process.env.NODE_ENV === 'development' && (
+                <Route path="/dev-login" element={<DevLogin />} />
+              )}
               {/* Protected routes */}
               <Route 
                 path="/" 

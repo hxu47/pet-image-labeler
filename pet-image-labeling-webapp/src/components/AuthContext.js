@@ -88,7 +88,11 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     register,
-    getToken
+    getToken,
+    // Add these for development testing:
+    setCurrentUser, // for local testing
+    setIsAdmin, // for local testing
+    setIsLabeler // for local testing
   };
 
   return (
