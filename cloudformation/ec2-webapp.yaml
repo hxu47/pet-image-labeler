@@ -1,0 +1,176 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EC2 Web Server for Pet Image Labeling System'
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+    Default: pet-image-labeler-key
+  
+  ApiGatewayStackName:
+    Type: String
+    Description: Name of the API Gateway CloudFormation stack
+    Default: pet-image-labeling-api
+  
+  AuthStackName:
+    Type: String
+    Description: Name of the Cognito authentication CloudFormation stack
+    Default: pet-image-labeling-auth
+
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP and SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref WebServerSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: ami-0c7217cdde317cfec  # Amazon Linux 2023 in us-east-1, update as needed
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          yum update -y
+          yum install -y git nodejs npm nginx
+
+          # Create deployment directory
+          mkdir -p /var/www/pet-image-labeler
+
+          # Clone the repository
+          git clone https://github.com/hxu47/pet-image-labeler.git /tmp/pet-image-labeler
+          
+          # Get config values from CloudFormation
+          API_URL=$(aws cloudformation describe-stacks --stack-name ${ApiGatewayStackName} --query "Stacks[0].Outputs[?OutputKey=='ApiURL'].OutputValue" --output text)
+          USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name ${AuthStackName} --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+          USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name ${AuthStackName} --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+          IDENTITY_POOL_ID=$(aws cloudformation describe-stacks --stack-name ${AuthStackName} --query "Stacks[0].Outputs[?OutputKey=='IdentityPoolId'].OutputValue" --output text)
+          
+          # Create config.js file
+          cat > /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js << EOF
+          import { Amplify } from 'aws-amplify';
+
+          Amplify.configure({
+            Auth: {
+              region: 'us-east-1',
+              userPoolId: '$USER_POOL_ID',
+              userPoolWebClientId: '$USER_POOL_CLIENT_ID',
+              identityPoolId: '$IDENTITY_POOL_ID'
+            },
+            API: {
+              endpoints: [
+                {
+                  name: 'api',
+                  endpoint: '$API_URL',
+                  custom_header: async () => {
+                    return { Authorization: \`Bearer \${(await Auth.currentSession()).getIdToken().getJwtToken()}\` }
+                  }
+                }
+              ]
+            }
+          });
+
+          export const config = { 
+            apiUrl: '$API_URL',
+            cognito: {
+              region: 'us-east-1',
+              userPoolId: '$USER_POOL_ID',
+              userPoolClientId: '$USER_POOL_CLIENT_ID',
+              identityPoolId: '$IDENTITY_POOL_ID'
+            },
+            labelTypes: [
+              { id: 'type', name: 'Pet Type', options: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Rodent', 'Reptile', 'Fish', 'Other'] },
+              { id: 'breed', name: 'Breed', options: [
+                'Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'Bulldog', 'Beagle', 'Poodle',
+                'Persian', 'Maine Coon', 'Siamese', 'Bengal', 'Ragdoll', 'Sphynx',
+                'Parakeet', 'Cockatiel', 'Lop Rabbit', 'Netherland Dwarf', 'Hamster', 'Guinea Pig', 'Other'
+              ] },
+              { id: 'age', name: 'Age', options: ['Kitten/Puppy (0-1 year)', 'Young Adult (1-3 years)', 'Adult (3-7 years)', 'Senior (7+ years)'] },
+              { id: 'coat', name: 'Coat Color', options: ['Black', 'White', 'Brown', 'Tan', 'Gray', 'Orange', 'Calico', 'Tabby', 'Brindle', 'Spotted', 'Mixed'] },
+              { id: 'health', name: 'Health Condition', options: ['None visible', 'Skin condition', 'Eye condition', 'Lameness', 'Dental issue', 'Overweight', 'Underweight'] }
+            ]
+          };
+          EOF
+          
+          # Add Bootstrap JS to index.html
+          sed -i '/<head>/a \    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>' /tmp/pet-image-labeler/pet-image-labeling-webapp/public/index.html
+          
+          # Build the React app
+          cd /tmp/pet-image-labeler/pet-image-labeling-webapp
+          npm install
+          npm run build
+          
+          # Deploy the built app
+          cp -r build/* /var/www/pet-image-labeler/
+          
+          # Configure Nginx
+          cat > /etc/nginx/conf.d/pet-image-labeler.conf << EOF
+          server {
+              listen 80;
+              root /var/www/pet-image-labeler;
+              index index.html;
+              
+              location / {
+                  try_files \$uri \$uri/ /index.html;
+              }
+          }
+          EOF
+          
+          # Remove default Nginx configuration
+          rm -f /etc/nginx/conf.d/default.conf
+          
+          # Start and enable Nginx
+          systemctl start nginx
+          systemctl enable nginx
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: CloudFormationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+Outputs:
+  WebsiteURL:
+    Description: URL for the website
+    Value: !Sub http://${WebServerInstance.PublicDnsName}
+  
+  PublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt WebServerInstance.PublicIp

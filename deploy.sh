@@ -165,90 +165,18 @@ aws cloudformation deploy \
     LambdaStackName=pet-image-labeling-functions \
     AuthStackName=pet-image-labeling-auth
 
-# Get the API endpoint URL
-API_URL=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-api --query "Stacks[0].Outputs[?OutputKey=='ApiURL'].OutputValue" --output text)
-echo "API URL: $API_URL"
 
-
-# Update config.js 
-cat > pet-image-labeling-webapp/src/config.js << EOF
-// Import Amplify at the top of the file
-import { Amplify, Auth } from 'aws-amplify';
-
-// Configure Amplify
-Amplify.configure({
-  Auth: {
-    region: 'us-east-1',
-    userPoolId: '$USER_POOL_ID',
-    userPoolWebClientId: '$USER_POOL_CLIENT_ID',
-    identityPoolId: '$IDENTITY_POOL_ID'
-  },
-  API: {
-    endpoints: [
-      {
-        name: 'api',
-        endpoint: '$API_URL',
-        custom_header: async () => {
-          return { Authorization: \`Bearer \${(await Auth.currentSession()).getIdToken().getJwtToken()}\` }
-        }
-      }
-    ]
-  }
-});
-
-// Export configuration for use in components
-export const config = { 
-  apiUrl: '$API_URL',
-  cognito: {
-    region: 'us-east-1',
-    userPoolId: '$USER_POOL_ID',
-    userPoolClientId: '$USER_POOL_CLIENT_ID',
-    identityPoolId: '$IDENTITY_POOL_ID'
-  },
-  labelTypes: [
-    { id: 'type', name: 'Pet Type', options: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Rodent', 'Reptile', 'Fish', 'Other'] },
-    { id: 'breed', name: 'Breed', options: [
-      // Dogs
-      'Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'Bulldog', 'Beagle', 'Poodle',
-      // Cats
-      'Persian', 'Maine Coon', 'Siamese', 'Bengal', 'Ragdoll', 'Sphynx',
-      // Other
-      'Parakeet', 'Cockatiel', 'Lop Rabbit', 'Netherland Dwarf', 'Hamster', 'Guinea Pig', 'Other'
-    ] },
-    { id: 'age', name: 'Age', options: ['Kitten/Puppy (0-1 year)', 'Young Adult (1-3 years)', 'Adult (3-7 years)', 'Senior (7+ years)'] },
-    { id: 'coat', name: 'Coat Color', options: ['Black', 'White', 'Brown', 'Tan', 'Gray', 'Orange', 'Calico', 'Tabby', 'Brindle', 'Spotted', 'Mixed'] },
-    { id: 'health', name: 'Health Condition', options: ['None visible', 'Skin condition', 'Eye condition', 'Lameness', 'Dental issue', 'Overweight', 'Underweight'] }
-  ]
-};
-EOF
-
-# 7. Deploy web interface CF stack
-echo "Deploying web interface CloudFormation stack..."
+# Deploy EC2 Web Server
+echo "Deploying EC2 Web Server..."
 aws cloudformation deploy \
-  --template-file cloudformation/web-interface.yaml \
-  --stack-name pet-image-labeling-web \
-  --parameter-overrides S3StorageStackName=pet-image-labeling-storage \
+  --template-file cloudformation/ec2-webapp.yaml \
+  --stack-name pet-image-labeling-ec2 \
+  --parameter-overrides \
+    ApiGatewayStackName=pet-image-labeling-api \
+    AuthStackName=pet-image-labeling-auth \
   --capabilities CAPABILITY_IAM
 
-# Get the ECR repository URI
-ECR_REPO=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='ECRRepositoryURI'].OutputValue" --output text)
-echo "ECR Repository URI: $ECR_REPO"
-
-# Build and push the Docker image
-cd pet-image-labeling-webapp
-echo "Building Docker image with optimized settings..."
-docker build --no-cache -t $ECR_REPO:latest .
-
-echo "Authenticating with ECR..."
-aws ecr get-login-password | docker login --username AWS --password-stdin $(echo $ECR_REPO | cut -d/ -f1)
-
-echo "Pushing Docker image to ECR..."
-docker push $ECR_REPO:latest
-
-cd ..
-
-# Update the ECS service to use the new image and set desired count to 1
-aws ecs update-service --no-cli-pager --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --desired-count 1
-
-echo "Deployment complete. Application should be available soon at the load balancer URL:"
-aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='WebAppURL'].OutputValue" --output text
+# Get outputs
+echo "Deployment complete!"
+echo "Website URL:"
+aws cloudformation describe-stacks --stack-name pet-image-labeling-ec2 --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" --output text
