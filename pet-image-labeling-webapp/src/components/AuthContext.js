@@ -38,17 +38,27 @@ export const AuthProvider = ({ children }) => {
 
   // Sign in function
   const login = async (email, password) => {
-    const user = await authService.signIn(email, password);
-    setCurrentUser(user);
-    
-    // Update roles after login
-    const adminStatus = await authService.isAdmin();
-    setIsAdmin(adminStatus);
-    
-    const labelerStatus = await authService.isLabeler();
-    setIsLabeler(labelerStatus);
-    
-    return user;
+    console.log('AuthContext: Starting login process');
+    try {
+      const user = await authService.signIn(email, password);
+      console.log('AuthContext: User authenticated successfully:', user);
+      setCurrentUser(user);
+      
+      // Check if roles are being correctly assessed
+      console.log('AuthContext: Checking user roles...');
+      const adminStatus = await authService.isAdmin();
+      console.log('AuthContext: isAdmin status:', adminStatus);
+      setIsAdmin(adminStatus);
+      
+      const labelerStatus = await authService.isLabeler();
+      console.log('AuthContext: isLabeler status:', labelerStatus);
+      setIsLabeler(labelerStatus);
+      
+      return user;
+    } catch (error) {
+      console.error('AuthContext: Login error:', error);
+      throw error;
+    }
   };
 
   // Sign out function

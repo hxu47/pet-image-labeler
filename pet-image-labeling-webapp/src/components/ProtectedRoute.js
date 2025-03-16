@@ -6,6 +6,12 @@ import { useAuth } from './AuthContext';
 const ProtectedRoute = ({ children, requireAdmin = false, requireLabeler = false }) => {
   const { currentUser, isAdmin, isLabeler, loading } = useAuth();
 
+  console.log('ProtectedRoute: Checking authentication');
+  console.log('- currentUser:', currentUser ? 'exists' : 'null');
+  console.log('- isAdmin:', isAdmin);
+  console.log('- isLabeler:', isLabeler);
+  console.log('- loading:', loading);
+  
   // Show loading spinner while checking authentication
   if (loading) {
     return (

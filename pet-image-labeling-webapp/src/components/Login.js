@@ -15,14 +15,17 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await authService.signIn(email, password);
-      navigate('/');
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Failed to sign in. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
+        console.log('Login form submitted, calling authService.signIn');
+        const user = await authService.signIn(email, password);
+        console.log('Login successful, user returned:', user);
+        console.log('About to navigate to /');
+        navigate('/');
+      } catch (err) {
+        console.error('Login error details:', err);
+        setError(err.message || 'Failed to sign in. Please check your credentials.');
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (

@@ -46,13 +46,15 @@ export const authService = {
   // Sign in user
   signIn: async (email, password) => {
     try {
+      console.log('Attempting to sign in with:', email);
       const user = await Auth.signIn(email, password);
+      console.log('Sign in successful, user object:', JSON.stringify(user));
       return user;
     } catch (error) {
       console.error('Error signing in:', error);
       throw error;
     }
-  },
+  }
 
   // Sign out user
   signOut: async () => {
