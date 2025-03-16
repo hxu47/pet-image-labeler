@@ -60,24 +60,24 @@ Resources:
           USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name ${AuthStackName} --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
           IDENTITY_POOL_ID=$(aws cloudformation describe-stacks --stack-name ${AuthStackName} --query "Stacks[0].Outputs[?OutputKey=='IdentityPoolId'].OutputValue" --output text)
           
-          # Create config.js file
-          cat > /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js << EOF
+          # Create config.js file with variables properly escaped
+          cat > /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js << 'EOF'
           import { Amplify } from 'aws-amplify';
 
           Amplify.configure({
             Auth: {
               region: 'us-east-1',
-              userPoolId: '$USER_POOL_ID',
-              userPoolWebClientId: '$USER_POOL_CLIENT_ID',
-              identityPoolId: '$IDENTITY_POOL_ID'
+              userPoolId: 'USER_POOL_ID_PLACEHOLDER',
+              userPoolWebClientId: 'USER_POOL_CLIENT_ID_PLACEHOLDER',
+              identityPoolId: 'IDENTITY_POOL_ID_PLACEHOLDER'
             },
             API: {
               endpoints: [
                 {
                   name: 'api',
-                  endpoint: '$API_URL',
+                  endpoint: 'API_URL_PLACEHOLDER',
                   custom_header: async () => {
-                    return { Authorization: \`Bearer \${(await Auth.currentSession()).getIdToken().getJwtToken()}\` }
+                    return { Authorization: `Bearer ${(await Auth.currentSession()).getIdToken().getJwtToken()}` }
                   }
                 }
               ]
@@ -85,12 +85,12 @@ Resources:
           });
 
           export const config = { 
-            apiUrl: '$API_URL',
+            apiUrl: 'API_URL_PLACEHOLDER',
             cognito: {
               region: 'us-east-1',
-              userPoolId: '$USER_POOL_ID',
-              userPoolClientId: '$USER_POOL_CLIENT_ID',
-              identityPoolId: '$IDENTITY_POOL_ID'
+              userPoolId: 'USER_POOL_ID_PLACEHOLDER',
+              userPoolClientId: 'USER_POOL_CLIENT_ID_PLACEHOLDER',
+              identityPoolId: 'IDENTITY_POOL_ID_PLACEHOLDER'
             },
             labelTypes: [
               { id: 'type', name: 'Pet Type', options: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Rodent', 'Reptile', 'Fish', 'Other'] },
@@ -105,6 +105,12 @@ Resources:
             ]
           };
           EOF
+
+          # Replace placeholders with actual values
+          sed -i "s|USER_POOL_ID_PLACEHOLDER|$USER_POOL_ID|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
+          sed -i "s|USER_POOL_CLIENT_ID_PLACEHOLDER|$USER_POOL_CLIENT_ID|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
+          sed -i "s|IDENTITY_POOL_ID_PLACEHOLDER|$IDENTITY_POOL_ID|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
+          sed -i "s|API_URL_PLACEHOLDER|$API_URL|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
           
           # Add Bootstrap JS to index.html
           sed -i '/<head>/a \    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>' /tmp/pet-image-labeler/pet-image-labeling-webapp/public/index.html
@@ -118,14 +124,14 @@ Resources:
           cp -r build/* /var/www/pet-image-labeler/
           
           # Configure Nginx
-          cat > /etc/nginx/conf.d/pet-image-labeler.conf << EOF
+          cat > /etc/nginx/conf.d/pet-image-labeler.conf << 'EOF'
           server {
               listen 80;
               root /var/www/pet-image-labeler;
               index index.html;
               
               location / {
-                  try_files \$uri \$uri/ /index.html;
+                  try_files $uri $uri/ /index.html;
               }
           }
           EOF
