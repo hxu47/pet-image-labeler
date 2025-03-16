@@ -3,6 +3,9 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
+# Increase Node.js memory allocation
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Copy package files and install dependencies with production flag
 COPY package*.json ./
 RUN npm ci --only=production
