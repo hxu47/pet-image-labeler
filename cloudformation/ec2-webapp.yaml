@@ -5,7 +5,7 @@ Parameters:
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access (optional)
     Type: String
-    Default: ""
+    Default: "pet-image-labeler-key"
   
   ApiGatewayStackName:
     Type: String
