@@ -3,7 +3,7 @@ Description: 'EC2 Web Server for Pet Image Labeling System'
 
 Parameters:
   KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access
+    Description: Name of an existing EC2 KeyPair to enable SSH access (optional)
     Type: String
     Default: ""
   
@@ -19,7 +19,7 @@ Parameters:
 
 Conditions:
   HasKeyName: !Not [!Equals [!Ref KeyName, ""]]
-  
+
 Resources:
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -43,7 +43,8 @@ Resources:
         - !Ref WebServerSecurityGroup
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref "AWS::NoValue"]
       ImageId: ami-0c7217cdde317cfec  # Amazon Linux 2023 in us-east-1, update as needed
-      IamInstanceProfile: !Ref EC2InstanceProfile
+      # Use the existing LabRole instance profile
+      IamInstanceProfile: "LabInstanceProfile"
       UserData:
         Fn::Base64:
           Fn::Join:
@@ -149,35 +150,6 @@ Resources:
                 # Start and enable Nginx
                 systemctl start nginx
                 systemctl enable nginx
-
-  EC2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-      Policies:
-        - PolicyName: CloudFormationAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeStacks
-                Resource: '*'
-
-  EC2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref EC2InstanceRole
 
 Outputs:
   WebsiteURL:
