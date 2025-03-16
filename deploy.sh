@@ -42,8 +42,11 @@ package_lambda() {
   npm install
   cp -r * /tmp/lambda-package/
   cd /tmp/lambda-package
-  zip -r ../../../$func_name.zip ./*
+  # Use /tmp which is typically writable
+  zip -r /tmp/$func_name.zip ./*
   cd ../../../
+  # Copy the zip from /tmp to current directory if needed
+  cp /tmp/$func_name.zip ./
   rm -rf /tmp/lambda-package
 }
 
