@@ -7,26 +7,10 @@ docker system prune -a -f
 # Disable AWS CLI pager to prevent interactive less
 export AWS_PAGER=""
 
-# Create a CloudFormation stack for the Lambda code bucket
-echo "Creating Lambda code bucket via CloudFormation..."
-cat > lambda-code-bucket.yaml << EOF
-AWSTemplateFormatVersion: '2010-09-09'
-Resources:
-  LambdaCodeBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: pet-image-labeling-lambda-packages
-      VersioningConfiguration:
-        Status: Enabled
-Outputs:
-  BucketName:
-    Description: "Lambda code bucket name"
-    Value: !Ref LambdaCodeBucket
-EOF
 
-# Deploy the bucket
+# Deploy the lambda-code-bucket
 aws cloudformation deploy \
-  --template-file lambda-code-bucket.yaml \
+  --template-file cloudformation/lambda-code-bucket.yaml \
   --stack-name pet-image-labeling-lambda-bucket
 
 # Get the bucket name

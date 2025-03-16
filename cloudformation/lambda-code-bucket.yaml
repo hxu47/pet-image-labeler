@@ -1,0 +1,12 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: pet-image-labeling-lambda-packages
+      VersioningConfiguration:
+        Status: Enabled
+Outputs:
+  BucketName:
+    Description: "Lambda code bucket name"
+    Value: !Ref LambdaCodeBucket
