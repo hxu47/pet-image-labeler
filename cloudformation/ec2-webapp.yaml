@@ -4,9 +4,8 @@ Description: 'EC2 Web Server for Pet Image Labeling System'
 Parameters:
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
-    Default: pet-image-labeler-key
+    Type: String
+    Default: ""
   
   ApiGatewayStackName:
     Type: String
@@ -18,6 +17,9 @@ Parameters:
     Description: Name of the Cognito authentication CloudFormation stack
     Default: pet-image-labeling-auth
 
+Conditions:
+  HasKeyName: !Not [!Equals [!Ref KeyName, ""]]
+  
 Resources:
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -39,7 +41,7 @@ Resources:
       InstanceType: t2.micro
       SecurityGroups:
         - !Ref WebServerSecurityGroup
-      KeyName: !Ref KeyName
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref "AWS::NoValue"]
       ImageId: ami-0c7217cdde317cfec  # Amazon Linux 2023 in us-east-1, update as needed
       IamInstanceProfile: !Ref EC2InstanceProfile
       UserData:
