@@ -4,6 +4,9 @@ set -e # Exit immediately if a command fails
 echo "Cleaning up Docker resources to free space..."
 docker system prune -a -f
 
+# Disable AWS CLI pager to prevent interactive less
+export AWS_PAGER=""
+
 # Create a CloudFormation stack for the Lambda code bucket
 echo "Creating Lambda code bucket via CloudFormation..."
 cat > lambda-code-bucket.yaml << EOF
@@ -151,73 +154,12 @@ aws cloudformation deploy \
 API_URL=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-api --query "Stacks[0].Outputs[?OutputKey=='ApiURL'].OutputValue" --output text)
 echo "API URL: $API_URL"
 
-# Create a test user in Cognito
-echo "Creating test user in Cognito..."
-TEST_USER_EMAIL="tester@petlabeling.com"
-TEST_USER_PASSWORD="Testing123!"
-TEST_USER_NAME="Test User"
 
-# Create the user
-aws cognito-idp admin-create-user \
-  --user-pool-id $USER_POOL_ID \
-  --username $TEST_USER_EMAIL \
-  --user-attributes \
-    Name=email,Value=$TEST_USER_EMAIL \
-    Name=email_verified,Value=true \
-    Name=name,Value="$TEST_USER_NAME" \
-  --message-action SUPPRESS
-
-# Set the user's password
-aws cognito-idp admin-set-user-password \
-  --user-pool-id $USER_POOL_ID \
-  --username $TEST_USER_EMAIL \
-  --password $TEST_USER_PASSWORD \
-  --permanent
-
-# Add the user to the Labelers group
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id $USER_POOL_ID \
-  --username $TEST_USER_EMAIL \
-  --group-name Labelers
-
-echo "Test user created with email: $TEST_USER_EMAIL and password: $TEST_USER_PASSWORD"
-
-# Create an admin user in Cognito
-echo "Creating admin user in Cognito..."
-ADMIN_EMAIL="admin@petlabeling.com"
-ADMIN_PASSWORD="Admin123!"
-ADMIN_NAME="Administrator"
-
-# Create the admin user
-aws cognito-idp admin-create-user \
-  --user-pool-id $USER_POOL_ID \
-  --username $ADMIN_EMAIL \
-  --user-attributes \
-    Name=email,Value=$ADMIN_EMAIL \
-    Name=email_verified,Value=true \
-    Name=name,Value="$ADMIN_NAME" \
-  --message-action SUPPRESS
-
-# Set the admin user's password
-aws cognito-idp admin-set-user-password \
-  --user-pool-id $USER_POOL_ID \
-  --username $ADMIN_EMAIL \
-  --password $ADMIN_PASSWORD \
-  --permanent
-
-# Add the admin to the Admins group
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id $USER_POOL_ID \
-  --username $ADMIN_EMAIL \
-  --group-name Admins
-
-echo "Admin user created with email: $ADMIN_EMAIL and password: $ADMIN_PASSWORD"
-
-# Update config.js with actual values
+# Update config.js 
 echo "export const config = { 
   apiUrl: '$API_URL',
   cognito: {
-    region: '${AWS::Region}',
+    region: 'us-east-1',
     userPoolId: '$USER_POOL_ID',
     userPoolClientId: '$USER_POOL_CLIENT_ID'
   },
@@ -240,7 +182,7 @@ echo "export const config = {
 # 7. Deploy web interface CF stack
 echo "Deploying web interface CloudFormation stack..."
 aws cloudformation deploy \
-  --template-file web-interface.yaml \
+  --template-file cloudformation/web-interface.yaml \
   --stack-name pet-image-labeling-web \
   --parameter-overrides S3StorageStackName=pet-image-labeling-storage \
   --capabilities CAPABILITY_IAM
@@ -264,129 +206,6 @@ cd ..
 
 # Update the ECS service to use the new image and set desired count to 1
 aws ecs update-service --no-cli-pager --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --desired-count 1
-
-# Set up CloudWatch dashboard for monitoring
-echo "Creating CloudWatch dashboard for monitoring..."
-cat > cloudwatch-dashboard.json << EOF
-{
-  "widgets": [
-    {
-      "type": "metric",
-      "x": 0,
-      "y": 0,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "metrics": [
-          [ "AWS/Lambda", "Invocations", "FunctionName", "pet-image-labeling-functions-GetImages", { "stat": "Sum", "period": 300 } ],
-          [ "AWS/Lambda", "Invocations", "FunctionName", "pet-image-labeling-functions-SubmitLabels", { "stat": "Sum", "period": 300 } ],
-          [ "AWS/Lambda", "Invocations", "FunctionName", "pet-image-labeling-functions-GetUploadUrl", { "stat": "Sum", "period": 300 } ],
-          [ "AWS/Lambda", "Invocations", "FunctionName", "pet-image-labeling-functions-DashboardMetrics", { "stat": "Sum", "period": 300 } ]
-        ],
-        "view": "timeSeries",
-        "stacked": false,
-        "region": "${AWS::Region}",
-        "title": "Lambda Function Invocations",
-        "period": 300
-      }
-    },
-    {
-      "type": "metric",
-      "x": 12,
-      "y": 0,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "metrics": [
-          [ "AWS/Lambda", "Duration", "FunctionName", "pet-image-labeling-functions-GetImages", { "stat": "Average", "period": 300 } ],
-          [ "AWS/Lambda", "Duration", "FunctionName", "pet-image-labeling-functions-SubmitLabels", { "stat": "Average", "period": 300 } ],
-          [ "AWS/Lambda", "Duration", "FunctionName", "pet-image-labeling-functions-GetUploadUrl", { "stat": "Average", "period": 300 } ],
-          [ "AWS/Lambda", "Duration", "FunctionName", "pet-image-labeling-functions-DashboardMetrics", { "stat": "Average", "period": 300 } ]
-        ],
-        "view": "timeSeries",
-        "stacked": false,
-        "region": "${AWS::Region}",
-        "title": "Lambda Function Duration",
-        "period": 300
-      }
-    },
-    {
-      "type": "metric",
-      "x": 0,
-      "y": 6,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "metrics": [
-          [ "AWS/ApiGateway", "Count", "ApiName", "pet-image-labeling-api-API" ]
-        ],
-        "view": "timeSeries",
-        "stacked": false,
-        "region": "${AWS::Region}",
-        "title": "API Gateway Request Count",
-        "period": 300
-      }
-    },
-    {
-      "type": "metric",
-      "x": 12,
-      "y": 6,
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "metrics": [
-          [ "AWS/ApiGateway", "Latency", "ApiName", "pet-image-labeling-api-API" ]
-        ],
-        "view": "timeSeries",
-        "stacked": false,
-        "region": "${AWS::Region}",
-        "title": "API Gateway Latency",
-        "period": 300
-      }
-    }
-  ]
-}
-EOF
-
-# Create the CloudWatch dashboard
-aws cloudwatch put-dashboard \
-  --dashboard-name PetImageLabelingSystem \
-  --dashboard-body file://cloudwatch-dashboard.json
-
-echo "CloudWatch dashboard created."
-
-# Create CloudWatch alarms for monitoring key metrics
-echo "Creating CloudWatch alarms..."
-
-# Alarm for Lambda errors
-aws cloudwatch put-metric-alarm \
-  --alarm-name "PetImageLabelingSystem-LambdaErrors" \
-  --alarm-description "Alarm when Lambda functions have errors" \
-  --metric-name Errors \
-  --namespace AWS/Lambda \
-  --statistic Sum \
-  --period 300 \
-  --threshold 1 \
-  --comparison-operator GreaterThanOrEqualToThreshold \
-  --evaluation-periods 1 \
-  --alarm-actions $SYSTEM_ALERTS_TOPIC_ARN \
-  --dimensions Name=FunctionName,Value=pet-image-labeling-functions-SubmitLabels
-
-# Alarm for API Gateway 5xx errors
-aws cloudwatch put-metric-alarm \
-  --alarm-name "PetImageLabelingSystem-API5xxErrors" \
-  --alarm-description "Alarm when API Gateway returns 5xx errors" \
-  --metric-name 5XXError \
-  --namespace AWS/ApiGateway \
-  --statistic Sum \
-  --period 300 \
-  --threshold 1 \
-  --comparison-operator GreaterThanOrEqualToThreshold \
-  --evaluation-periods 1 \
-  --alarm-actions $SYSTEM_ALERTS_TOPIC_ARN \
-  --dimensions Name=ApiName,Value=pet-image-labeling-api-API
-
-echo "CloudWatch alarms created."
 
 echo "Deployment complete. Application should be available soon at the load balancer URL:"
 aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='WebAppURL'].OutputValue" --output text
