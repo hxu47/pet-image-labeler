@@ -119,6 +119,18 @@ aws cloudformation deploy \
   --stack-name pet-image-labeling-storage \
   --parameter-overrides LambdaStackName=pet-image-labeling-functions
 
+echo "Configuring S3 bucket notification..."
+aws s3api put-bucket-notification-configuration \
+  --bucket $(aws cloudformation describe-stacks --stack-name pet-image-labeling-storage --query "Stacks[0].Outputs[?OutputKey=='RawBucketName'].OutputValue" --output text) \
+  --notification-configuration '{
+    "LambdaFunctionConfigurations": [
+      {
+        "LambdaFunctionArn": "'"$(aws cloudformation describe-stacks --stack-name pet-image-labeling-functions --query "Stacks[0].Exports[?Name=='pet-image-labeling-functions-ImageUploadFunctionArn'].Value" --output text)"'",
+        "Events": ["s3:ObjectCreated:*"]
+      }
+    ]
+  }'
+  
 # 6. Deploy API Gateway
 echo "Deploying API Gateway..."
 aws cloudformation deploy \

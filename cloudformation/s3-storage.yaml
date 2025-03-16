@@ -20,7 +20,7 @@ Resources:
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled
-      # Removed NotificationConfiguration to separate resource
+      # We'll use a custom resource for notifications instead
   
   PetImagesProcessedBucket:
     Type: AWS::S3::Bucket
@@ -82,19 +82,6 @@ Resources:
         'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
       Principal: s3.amazonaws.com
       SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-pet-images-raw"
-  
-  # S3 Bucket Notification as a separate resource
-  RawBucketNotification:
-    Type: AWS::S3::BucketNotification
-    DependsOn:
-      - LambdaPermissionForS3
-      - RawBucketPolicy
-    Properties:
-      Bucket: !Ref PetImagesRawBucket
-      LambdaConfigurations:
-        - Event: s3:ObjectCreated:*
-          Function: !ImportValue 
-            'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
 
 Outputs:
   RawBucketName:
