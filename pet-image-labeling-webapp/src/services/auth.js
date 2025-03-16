@@ -54,7 +54,7 @@ export const authService = {
       console.error('Error signing in:', error);
       throw error;
     }
-  }
+  },
 
   // Sign out user
   signOut: async () => {
