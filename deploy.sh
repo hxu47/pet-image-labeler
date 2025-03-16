@@ -87,7 +87,7 @@ aws s3 cp image-upload.zip s3://$LAMBDA_CODE_BUCKET/
 # 1. Deploy Cognito resources for authentication
 echo "Deploying Cognito authentication resources..."
 aws cloudformation deploy \
-  --template-file cognito-auth.yaml \
+  --template-file cloudformation/cognito-auth.yaml \
   --stack-name pet-image-labeling-auth \
   --capabilities CAPABILITY_NAMED_IAM
 
@@ -101,7 +101,7 @@ echo "Cognito User Pool Client ID: $USER_POOL_CLIENT_ID"
 # 2. Deploy SNS topics for notifications
 echo "Deploying SNS notification topics..."
 aws cloudformation deploy \
-  --template-file sns-integration.yaml \
+  --template-file cloudformation/sns-integration.yaml \
   --stack-name pet-image-labeling-sns
 
 # Get SNS topic ARNs
@@ -116,13 +116,13 @@ echo "System Alerts Topic ARN: $SYSTEM_ALERTS_TOPIC_ARN"
 # 3. Deploy DynamoDB tables
 echo "Deploying DynamoDB tables..."
 aws cloudformation deploy \
-  --template-file dynamodb-tables.yaml \
+  --template-file cloudformation/dynamodb-tables.yaml \
   --stack-name pet-image-labeling-database
 
 # 4. Deploy Lambda functions
 echo "Deploying Lambda functions..."
 aws cloudformation deploy \
-  --template-file lambda-functions.yaml \
+  --template-file cloudformation/lambda-functions.yaml \
   --stack-name pet-image-labeling-functions \
   --parameter-overrides \
     DynamoDBStackName=pet-image-labeling-database \
@@ -133,14 +133,14 @@ aws cloudformation deploy \
 # 5. Deploy S3 storage
 echo "Deploying S3 storage..."
 aws cloudformation deploy \
-  --template-file s3-storage.yaml \
+  --template-file cloudformation/s3-storage.yaml \
   --stack-name pet-image-labeling-storage \
   --parameter-overrides LambdaStackName=pet-image-labeling-functions
 
 # 6. Deploy API Gateway
 echo "Deploying API Gateway..."
 aws cloudformation deploy \
-  --template-file api-gateway.yaml \
+  --template-file cloudformation/api-gateway.yaml \
   --stack-name pet-image-labeling-api \
   --parameter-overrides \
     LambdaStackName=pet-image-labeling-functions \

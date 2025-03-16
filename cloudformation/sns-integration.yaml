@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SNS Resources for Pet Image Labeling System'
+
+Resources:
+  # SNS Topic for image upload notifications
+  ImageUploadTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-ImageUploads"
+      DisplayName: "Pet Image Uploads"
+      Tags:
+        - Key: Purpose
+          Value: "Notify about new pet image uploads"
+
+  # SNS Topic for label submission notifications
+  LabelSubmissionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-LabelSubmissions"
+      DisplayName: "Pet Image Labels"
+      Tags:
+        - Key: Purpose
+          Value: "Notify about new pet image labels"
+
+  # SNS Topic for system alerts
+  SystemAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-SystemAlerts"
+      DisplayName: "System Alerts"
+      Tags:
+        - Key: Purpose
+          Value: "System alerts and notifications"
+
+  # Email subscription to system alerts topic
+  SystemAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SystemAlertsTopic
+      Protocol: email
+      Endpoint: admin@petlabeling.com
+
+  # Create a policy to allow Lambda functions to publish to SNS topics
+  SNSPublishPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${AWS::StackName}-SNSPublishPolicy"
+      Description: "Allows publishing to SNS topics related to pet image labeling"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - sns:Publish
+              - sns:PublishBatch
+            Resource:
+              - !Ref ImageUploadTopic
+              - !Ref LabelSubmissionTopic
+              - !Ref SystemAlertsTopic
+
+Outputs:
+  ImageUploadTopicArn:
+    Description: "ARN of the Image Upload SNS Topic"
+    Value: !Ref ImageUploadTopic
+    Export:
+      Name: !Sub "${AWS::StackName}-ImageUploadTopicArn"
+  
+  LabelSubmissionTopicArn:
+    Description: "ARN of the Label Submission SNS Topic"
+    Value: !Ref LabelSubmissionTopic
+    Export:
+      Name: !Sub "${AWS::StackName}-LabelSubmissionTopicArn"
+  
+  SystemAlertsTopicArn:
+    Description: "ARN of the System Alerts SNS Topic"
+    Value: !Ref SystemAlertsTopic
+    Export:
+      Name: !Sub "${AWS::StackName}-SystemAlertsTopicArn"
+  
+  SNSPublishPolicyArn:
+    Description: "ARN of the SNS Publish Policy"
+    Value: !Ref SNSPublishPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-SNSPublishPolicyArn"
