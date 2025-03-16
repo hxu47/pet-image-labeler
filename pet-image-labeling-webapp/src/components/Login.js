@@ -1,31 +1,33 @@
 import React, { useState } from 'react';
-import { authService } from '../services/auth';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../components/AuthContext';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { login } = useAuth(); // Use the login function from auth context
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+    
+        try {
+          // Use the login function from auth context instead of calling authService directly
+          await login(email, password);
+          navigate('/');
+        } catch (err) {
+          console.error('Login error:', err);
+          setError(err.message || 'Failed to sign in. Please check your credentials.');
+        } finally {
+          setLoading(false);
+        }
+    };
 
-    try {
-        console.log('Login form submitted, calling authService.signIn');
-        const user = await authService.signIn(email, password);
-        console.log('Login successful, user returned:', user);
-        console.log('About to navigate to /');
-        navigate('/');
-      } catch (err) {
-        console.error('Login error details:', err);
-        setError(err.message || 'Failed to sign in. Please check your credentials.');
-      } finally {
-        setLoading(false);
-      }
+
   };
 
   return (

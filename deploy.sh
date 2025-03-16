@@ -170,7 +170,6 @@ echo "API URL: $API_URL"
 
 
 # Update config.js 
-# Update config.js with proper Amplify configuration
 cat > pet-image-labeling-webapp/src/config.js << EOF
 // Import Amplify at the top of the file
 import { Amplify, Auth } from 'aws-amplify';
