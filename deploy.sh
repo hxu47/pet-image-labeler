@@ -102,7 +102,8 @@ echo "Cognito User Pool Client ID: $USER_POOL_CLIENT_ID"
 echo "Deploying SNS notification topics..."
 aws cloudformation deploy \
   --template-file cloudformation/sns-integration.yaml \
-  --stack-name pet-image-labeling-sns
+  --stack-name pet-image-labeling-sns \
+  --capabilities CAPABILITY_NAMED_IAM
 
 # Get SNS topic ARNs
 IMAGE_UPLOAD_TOPIC_ARN=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-sns --query "Stacks[0].Outputs[?OutputKey=='ImageUploadTopicArn'].OutputValue" --output text)
