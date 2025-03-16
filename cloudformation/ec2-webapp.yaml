@@ -42,7 +42,7 @@ Resources:
       SecurityGroups:
         - !Ref WebServerSecurityGroup
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref "AWS::NoValue"]
-      ImageId: ami-0c7217cdde317cfec  # Amazon Linux 2023 in us-east-1, update as needed
+      ImageId: ami-08b5b3a93ed654d19  # Amazon Linux 2023 in us-east-1, update as needed
       # Use the existing LabRole instance profile
       IamInstanceProfile: "LabInstanceProfile"
       UserData:
