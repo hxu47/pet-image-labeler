@@ -119,10 +119,7 @@ Resources:
                 sed -i "s|USER_POOL_CLIENT_ID_PLACEHOLDER|$USER_POOL_CLIENT_ID|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
                 sed -i "s|IDENTITY_POOL_ID_PLACEHOLDER|$IDENTITY_POOL_ID|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
                 sed -i "s|API_URL_PLACEHOLDER|$API_URL|g" /tmp/pet-image-labeler/pet-image-labeling-webapp/src/config.js
-                
-                # Add Bootstrap JS to index.html
-                sed -i '/<head>/a \    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>' /tmp/pet-image-labeler/pet-image-labeling-webapp/public/index.html
-                
+                                
                 # Build the React app
                 cd /tmp/pet-image-labeler/pet-image-labeling-webapp
                 npm install
