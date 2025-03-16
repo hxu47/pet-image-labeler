@@ -76,10 +76,10 @@ Resources:
         Variables:
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
           LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
-          USER_POOL_ID: !ImportValue 
-            !Sub "${AuthStackName}-UserPoolId"
-          LABEL_SUBMISSION_TOPIC_ARN: !ImportValue 
-            !Sub "${SNSStackName}-LabelSubmissionTopicArn"
+          USER_POOL_ID: 
+            Fn::ImportValue: !Sub "${AuthStackName}-UserPoolId"
+          LABEL_SUBMISSION_TOPIC_ARN: 
+            Fn::ImportValue: !Sub "${SNSStackName}-LabelSubmissionTopicArn"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: submit-labels.zip
@@ -119,8 +119,8 @@ Resources:
       Environment:
         Variables:
           RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
-          IMAGE_UPLOAD_TOPIC_ARN: !ImportValue 
-            !Sub "${SNSStackName}-ImageUploadTopicArn"
+          IMAGE_UPLOAD_TOPIC_ARN: 
+            Fn::ImportValue: !Sub "${SNSStackName}-ImageUploadTopicArn"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: get-upload-url.zip
@@ -140,8 +140,8 @@ Resources:
           RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
           PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
-          IMAGE_UPLOAD_TOPIC_ARN: !ImportValue 
-            !Sub "${SNSStackName}-ImageUploadTopicArn"
+          IMAGE_UPLOAD_TOPIC_ARN: 
+            Fn::ImportValue: !Sub "${SNSStackName}-ImageUploadTopicArn"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: image-upload.zip
