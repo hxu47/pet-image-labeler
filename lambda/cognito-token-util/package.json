@@ -1,0 +1,9 @@
+{
+    "name": "cognito-token-util",
+    "version": "1.0.0",
+    "description": "Utility for handling Cognito tokens",
+    "main": "index.js",
+    "dependencies": {
+      "jsonwebtoken": "^9.0.0"
+    }
+  }

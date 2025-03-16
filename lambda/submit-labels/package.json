@@ -1,0 +1,11 @@
+{
+    "name": "submit-labels",
+    "version": "1.0.0",
+    "description": "Function for submitting pet image labels",
+    "main": "index.js",
+    "dependencies": {
+      "@aws-sdk/client-dynamodb": "^3.x",
+      "@aws-sdk/lib-dynamodb": "^3.x",
+      "@aws-sdk/client-sns": "^3.x"
+    }
+  }

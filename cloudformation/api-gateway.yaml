@@ -6,6 +6,11 @@ Parameters:
     Type: String
     Description: Name of the Lambda functions CloudFormation stack
     Default: pet-image-labeling-functions
+    
+  AuthStackName:
+    Type: String
+    Description: Name of the Cognito authentication CloudFormation stack
+    Default: pet-image-labeling-auth
   
   CorsOrigin:
     Type: String
@@ -23,27 +28,16 @@ Resources:
         Types:
           - REGIONAL
 
-  # Cognito Authorizer for API Gateway
+  # Cognito Authorizer for API Gateway (using User Pool directly)
   CognitoAuthorizer:
     Type: AWS::ApiGateway::Authorizer
     Properties:
-      Name: CognitoAuthorizer
+      Name: CognitoUserPoolAuthorizer
       RestApiId: !Ref PetLabelingAPI
       Type: COGNITO_USER_POOLS
       IdentitySource: method.request.header.Authorization
       ProviderARNs:
-        - !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ImportValue:${LambdaStackName}-UserPoolId}"
-      
-  # Lambda Authorizer for API Gateway
-  TokenAuthorizer:
-    Type: AWS::ApiGateway::Authorizer
-    Properties:
-      Name: TokenAuthorizer
-      RestApiId: !Ref PetLabelingAPI
-      Type: TOKEN
-      IdentitySource: method.request.header.Authorization
-      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-TokenValidator/invocations"
-      AuthorizerResultTtlInSeconds: 300
+        - !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ImportValue:${AuthStackName}-UserPoolId}"
 
   # API Gateway Resource: /images
   ImagesResource:
@@ -297,14 +291,6 @@ Resources:
       FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/upload-url"
-  
-  TokenValidatorPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Sub "${LambdaStackName}-TokenValidator"
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/authorizers/${TokenAuthorizer}"
       
 Outputs:
   ApiURL:

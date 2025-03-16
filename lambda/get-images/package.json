@@ -1,0 +1,12 @@
+{
+  "name": "get-images",
+  "version": "1.0.0",
+  "description": "Function for retrieving images from DynamoDB and S3",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.x",
+    "@aws-sdk/lib-dynamodb": "^3.x",
+    "@aws-sdk/client-s3": "^3.x",
+    "@aws-sdk/s3-request-presigner": "^3.x"
+  }
+}

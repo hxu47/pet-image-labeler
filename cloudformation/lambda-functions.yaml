@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Lambda Functions for Pet Image Labeling System'
+
+Parameters:
+  S3StorageStackName:
+    Type: String
+    Description: Name of the S3 storage CloudFormation stack
+    Default: pet-image-labeling-storage
+  
+  DynamoDBStackName:
+    Type: String
+    Description: Name of the DynamoDB CloudFormation stack
+    Default: pet-image-labeling-database
+
+  AuthStackName:
+    Type: String
+    Description: Name of the Cognito authentication CloudFormation stack
+    Default: pet-image-labeling-auth
+    
+  SNSStackName:
+    Type: String
+    Description: Name of the SNS integration CloudFormation stack
+    Default: pet-image-labeling-sns
+
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket containing Lambda function code packages
+    Default: pet-image-labeling-lambda-packages
+
+Resources:
+  # Cognito Token Utility Lambda Layer
+  CognitoTokenLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-CognitoToken"
+      Description: Common functions for handling Cognito tokens
+      Content:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: cognito-token-util.zip
+      CompatibleRuntimes:
+        - nodejs18.x
+
+  # Get Images API Handler Lambda Function
+  GetImagesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetImages"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-images.zip
+
+  # Submit Labels API Handler Lambda Function
+  SubmitLabelsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-SubmitLabels"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+          USER_POOL_ID: !ImportValue 
+            !Sub "${AuthStackName}-UserPoolId"
+          LABEL_SUBMISSION_TOPIC_ARN: !ImportValue 
+            !Sub "${SNSStackName}-LabelSubmissionTopicArn"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: submit-labels.zip
+
+  # Dashboard Metrics Handler Lambda Function
+  DashboardMetricsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-DashboardMetrics"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 15
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: dashboard-metrics.zip
+
+  # Get Upload URL Lambda Function
+  GetUploadUrlFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetUploadUrl"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
+          IMAGE_UPLOAD_TOPIC_ARN: !ImportValue 
+            !Sub "${SNSStackName}-ImageUploadTopicArn"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-upload-url.zip
+
+  # Image Upload Lambda Function
+  ImageUploadFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ImageUpload"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
+          PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          IMAGE_UPLOAD_TOPIC_ARN: !ImportValue 
+            !Sub "${SNSStackName}-ImageUploadTopicArn"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: image-upload.zip
+
+Outputs:
+  ImageUploadFunctionArn:
+    Description: "ARN of the Image Upload Lambda function"
+    Value: !GetAtt ImageUploadFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ImageUploadFunctionArn"
+  
+  GetImagesFunctionArn:
+    Description: "ARN of the Get Images Lambda function"
+    Value: !GetAtt GetImagesFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetImagesFunctionArn"
+  
+  SubmitLabelsFunctionArn:
+    Description: "ARN of the Submit Labels Lambda function"
+    Value: !GetAtt SubmitLabelsFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-SubmitLabelsFunctionArn"
+  
+  DashboardMetricsFunctionArn:
+    Description: "ARN of the Dashboard Metrics Lambda function"
+    Value: !GetAtt DashboardMetricsFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-DashboardMetricsFunctionArn"
+
+  GetUploadUrlFunctionArn:
+    Description: "ARN of the Get Upload URL Lambda function"
+    Value: !GetAtt GetUploadUrlFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetUploadUrlFunctionArn"

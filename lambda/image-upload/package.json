@@ -1,7 +1,7 @@
 {
-  "name": "image-processor",
+  "name": "image-upload",
   "version": "1.0.0",
-  "description": "Process uploaded images",
+  "description": "Function for uploading image",
   "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.400.0",

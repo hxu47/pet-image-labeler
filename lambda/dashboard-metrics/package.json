@@ -1,0 +1,11 @@
+{
+  "name": "dashboard-metrics",
+  "version": "1.0.0",
+  "description": "Function for retrieving dashboard metrics",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.x",
+    "@aws-sdk/lib-dynamodb": "^3.x",
+    "@aws-sdk/client-cloudwatch": "^3.x"
+  }
+}
