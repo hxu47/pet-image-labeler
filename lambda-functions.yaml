@@ -12,12 +12,167 @@ Parameters:
     Description: Name of the DynamoDB CloudFormation stack
     Default: pet-image-labeling-database
 
+  AuthStackName:
+    Type: String
+    Description: Name of the Cognito authentication CloudFormation stack
+    Default: pet-image-labeling-auth
+
   LambdaCodeBucket:
     Type: String
     Description: S3 bucket containing Lambda function code packages
     Default: pet-image-labeling-lambda-packages
 
 Resources:
+  # Token Validator Lambda Layer
+  TokenValidatorLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-TokenValidator"
+      Description: Common functions for validating Cognito tokens
+      Content:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: token-validator-layer.zip
+      CompatibleRuntimes:
+        - nodejs18.x
+
+  # Auth validator helper for API Gateway
+  TokenValidatorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-TokenValidator"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          USER_POOL_ID: !ImportValue 
+            !Sub "${AuthStackName}-UserPoolId"
+      Code:
+        ZipFile: |
+          const jwt = require('jsonwebtoken');
+          const jwksClient = require('jwks-rsa');
+
+          // Cache for previously fetched public keys
+          const keyCache = {};
+
+          exports.handler = async (event) => {
+            try {
+              // Extract token from the Authorization header
+              const token = event.authorizationToken;
+              if (!token) {
+                return generatePolicy('user', 'Deny', event.methodArn);
+              }
+
+              // Verify the token is a Bearer token
+              const match = token.match(/^Bearer (.*)$/);
+              if (!match || match.length < 2) {
+                return generatePolicy('user', 'Deny', event.methodArn);
+              }
+
+              const idToken = match[1];
+              
+              // Get the kid (key ID) from the token header
+              const tokenSections = idToken.split('.');
+              if (tokenSections.length < 2) {
+                throw new Error('Invalid token format');
+              }
+              
+              const headerJSON = Buffer.from(tokenSections[0], 'base64').toString('utf8');
+              const header = JSON.parse(headerJSON);
+              const kid = header.kid;
+              
+              // Get the public key for verification
+              const userPoolId = process.env.USER_POOL_ID;
+              const jwksUri = `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${userPoolId}/.well-known/jwks.json`;
+              
+              // Check if we already have the key in the cache
+              let pem;
+              if (keyCache[kid]) {
+                pem = keyCache[kid];
+              } else {
+                // Fetch the public key
+                const client = jwksClient({
+                  jwksUri: jwksUri
+                });
+                
+                const key = await new Promise((resolve, reject) => {
+                  client.getSigningKey(kid, (err, result) => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      resolve(result);
+                    }
+                  });
+                });
+                
+                pem = key.publicKey || key.rsaPublicKey;
+                
+                // Cache the key
+                keyCache[kid] = pem;
+              }
+              
+              // Verify the token
+              const decodedToken = await new Promise((resolve, reject) => {
+                jwt.verify(idToken, pem, { algorithms: ['RS256'] }, (err, decoded) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    resolve(decoded);
+                  }
+                });
+              });
+              
+              // Check if token is expired
+              const currentTimestamp = Math.floor(Date.now() / 1000);
+              if (decodedToken.exp <= currentTimestamp) {
+                throw new Error('Token expired');
+              }
+              
+              // Extract user information from the token
+              const user = {
+                sub: decodedToken.sub,
+                email: decodedToken.email,
+                name: decodedToken.name,
+                groups: decodedToken['cognito:groups'] || []
+              };
+              
+              // Generate the policy
+              return generatePolicy(user.sub, 'Allow', event.methodArn, user);
+              
+            } catch (error) {
+              console.error('Token validation error:', error);
+              return generatePolicy('user', 'Deny', event.methodArn);
+            }
+          };
+
+          // Helper function to generate an IAM policy
+          function generatePolicy(principalId, effect, resource, context) {
+            const authResponse = {
+              principalId: principalId
+            };
+            
+            if (effect && resource) {
+              const policyDocument = {
+                Version: '2012-10-17',
+                Statement: [{
+                  Action: 'execute-api:Invoke',
+                  Effect: effect,
+                  Resource: resource
+                }]
+              };
+              authResponse.policyDocument = policyDocument;
+            }
+            
+            // Add user context for lambda functions
+            if (context) {
+              authResponse.context = context;
+            }
+            
+            return authResponse;
+          }
+
   # 1. Image Upload Handler Lambda Function
   ImageUploadFunction:
     Type: AWS::Lambda::Function
@@ -75,6 +230,10 @@ Resources:
               const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
               const docClient = DynamoDBDocumentClient.from(ddbClient);
               
+              // Extract user info from context if available
+              const currentUser = event.requestContext?.authorizer?.lambda;
+              console.log('Current user:', currentUser);
+              
               // Parse query parameters
               const queryParams = event.queryStringParameters || {};
               const labelStatus = queryParams.status || 'unlabeled';
@@ -128,434 +287,3 @@ Resources:
               };
             }
           };
-  
-  # 3. Submit Labels API Handler Lambda Function
-  SubmitLabelsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-SubmitLabels"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 256
-      Environment:
-        Variables:
-          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
-          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, PutCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
-          
-          exports.handler = async (event) => {
-            try {
-              // Create clients
-              const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-              const docClient = DynamoDBDocumentClient.from(ddbClient);
-              
-              // Parse request body
-              const requestBody = JSON.parse(event.body);
-              const { imageId, labels, labeledBy } = requestBody;
-              
-              if (!imageId || !labels || !Array.isArray(labels)) {
-                return {
-                  statusCode: 400,
-                  headers: {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({ message: 'Invalid request parameters' })
-                };
-              }
-              
-              // Insert each label into the Labels table
-              const labelPromises = labels.map(label => {
-                const labelId = new Date().getTime().toString(); // Simple ID generation
-                const putCommand = new PutCommand({
-                  TableName: process.env.LABELS_TABLE,
-                  Item: {
-                    imageId,
-                    labelId,
-                    labelType: label.type,
-                    labelValue: label.value,
-                    confidence: label.confidence || 1.0,
-                    labeledBy,
-                    labeledAt: new Date().toISOString()
-                  }
-                });
-                return docClient.send(putCommand);
-              });
-              
-              await Promise.all(labelPromises);
-              
-              // Update image status to 'labeled'
-              const updateCommand = new UpdateCommand({
-                TableName: process.env.IMAGES_TABLE,
-                Key: { imageId },
-                UpdateExpression: 'SET labelStatus = :status, lastLabeledAt = :time, lastLabeledBy = :user',
-                ExpressionAttributeValues: {
-                  ':status': 'labeled',
-                  ':time': new Date().toISOString(),
-                  ':user': labeledBy
-                }
-              });
-              
-              await docClient.send(updateCommand);
-              
-              return {
-                statusCode: 200,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ message: 'Labels submitted successfully' })
-              };
-            } catch (error) {
-              console.error('Error submitting labels:', error);
-              return {
-                statusCode: 500,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ message: 'Error submitting labels', error: error.message })
-              };
-            }
-          };
-
-  # 4. User Management Handler Lambda Function
-  UserManagementFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-UserManagement"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 256
-      Environment:
-        Variables:
-          USERS_TABLE: !Sub "${DynamoDBStackName}-Users"
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, GetCommand, ScanCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
-          
-          exports.handler = async (event) => {
-            try {
-              // Create clients
-              const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-              const docClient = DynamoDBDocumentClient.from(ddbClient);
-              
-              const { httpMethod, path, body } = event;
-              const pathSegments = path.split('/');
-              const resourceType = pathSegments[1]; // 'users'
-              const resourceId = pathSegments[2]; // userId if present
-              
-              // Handle different HTTP methods
-              if (httpMethod === 'GET' && resourceType === 'users' && resourceId) {
-                // Get a specific user
-                const getCommand = new GetCommand({
-                  TableName: process.env.USERS_TABLE,
-                  Key: { userId: resourceId }
-                });
-                
-                const result = await docClient.send(getCommand);
-                
-                return {
-                  statusCode: 200,
-                  headers: { 
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify(result.Item || {})
-                };
-              } else if (httpMethod === 'GET' && resourceType === 'users') {
-                // List all users
-                const scanCommand = new ScanCommand({
-                  TableName: process.env.USERS_TABLE
-                });
-                
-                const result = await docClient.send(scanCommand);
-                
-                return {
-                  statusCode: 200,
-                  headers: { 
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify(result.Items || [])
-                };
-              } else if (httpMethod === 'POST' && resourceType === 'users') {
-                // Create a new user
-                const userData = JSON.parse(body);
-                
-                if (!userData.userId || !userData.username) {
-                  return {
-                    statusCode: 400,
-                    headers: { 
-                      'Access-Control-Allow-Origin': '*',
-                      'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ message: 'userId and username are required' })
-                  };
-                }
-                
-                const putCommand = new PutCommand({
-                  TableName: process.env.USERS_TABLE,
-                  Item: {
-                    userId: userData.userId,
-                    username: userData.username,
-                    email: userData.email || '',
-                    role: userData.role || 'labeler',
-                    createdAt: new Date().toISOString()
-                  }
-                });
-                
-                await docClient.send(putCommand);
-                
-                return {
-                  statusCode: 201,
-                  headers: { 
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify({ message: 'User created successfully' })
-                };
-              } else {
-                return {
-                  statusCode: 400,
-                  headers: { 
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json' 
-                  },
-                  body: JSON.stringify({ message: 'Unsupported method or resource' })
-                };
-              }
-            } catch (error) {
-              console.error('Error in user management:', error);
-              return {
-                statusCode: 500,
-                headers: { 
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ message: 'Internal server error', error: error.message })
-              };
-            }
-          };
-
-  # 5. Dashboard Metrics Handler Lambda Function
-  DashboardMetricsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-DashboardMetrics"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 15
-      MemorySize: 256
-      Environment:
-        Variables:
-          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
-          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
-      Code:
-        ZipFile: |
-          const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-          const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
-          
-          exports.handler = async (event) => {
-            try {
-              // Create clients
-              const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-              const docClient = DynamoDBDocumentClient.from(ddbClient);
-              
-              // Get total counts from Images table
-              const imagesCountCommand = new ScanCommand({
-                TableName: process.env.IMAGES_TABLE,
-                Select: 'COUNT'
-              });
-              
-              const imagesResult = await docClient.send(imagesCountCommand);
-              const totalImages = imagesResult.Count;
-              
-              // Get counts by label status
-              const labeledImagesCommand = new ScanCommand({
-                TableName: process.env.IMAGES_TABLE,
-                FilterExpression: 'labelStatus = :status',
-                ExpressionAttributeValues: {
-                  ':status': 'labeled'
-                },
-                Select: 'COUNT'
-              });
-              
-              const labeledImagesResult = await docClient.send(labeledImagesCommand);
-              const labeledImages = labeledImagesResult.Count;
-              const unlabeledImages = totalImages - labeledImages;
-              
-              // Get label type distribution
-              const labelsCommand = new ScanCommand({
-                TableName: process.env.LABELS_TABLE,
-                ProjectionExpression: 'labelType, labelValue'
-              });
-              
-              const labelsResult = await docClient.send(labelsCommand);
-              
-              // Calculate label type distribution
-              const labelTypeDistribution = {};
-              labelsResult.Items.forEach(item => {
-                if (!labelTypeDistribution[item.labelType]) {
-                  labelTypeDistribution[item.labelType] = {
-                    total: 0,
-                    values: {}
-                  };
-                }
-                
-                labelTypeDistribution[item.labelType].total += 1;
-                
-                if (!labelTypeDistribution[item.labelType].values[item.labelValue]) {
-                  labelTypeDistribution[item.labelType].values[item.labelValue] = 0;
-                }
-                
-                labelTypeDistribution[item.labelType].values[item.labelValue] += 1;
-              });
-              
-              // Prepare dashboard metrics
-              const metrics = {
-                totalImages,
-                labeledImages,
-                unlabeledImages,
-                completionPercentage: totalImages > 0 ? (labeledImages / totalImages * 100).toFixed(2) : 0,
-                labelTypeDistribution
-              };
-              
-              return {
-                statusCode: 200,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(metrics)
-              };
-            } catch (error) {
-              console.error('Error generating dashboard metrics:', error);
-              return {
-                statusCode: 500,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ message: 'Error generating metrics', error: error.message })
-              };
-            }
-          };
-
-  # 6. Get Upload URL Lambda Function
-  GetUploadUrlFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-GetUploadUrl"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 256
-      Environment:
-        Variables:
-          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
-      Code:
-        ZipFile: |
-          const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-          const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-          
-          exports.handler = async (event) => {
-            try {
-              const s3Client = new S3Client({ region: process.env.AWS_REGION });
-              const queryParams = event.queryStringParameters || {};
-              const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
-              
-              // Generate a random unique ID for the image
-              const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-              
-              // Create the key using the image ID and original filename
-              const key = `uploads/${imageId}/${filename}`;
-              
-              // Create the command for the S3 operation
-              const command = new PutObjectCommand({
-                Bucket: process.env.RAW_BUCKET,
-                Key: key,
-                ContentType: 'image/*'
-              });
-              
-              // Generate a presigned URL for uploading the file
-              const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
-              
-              return {
-                statusCode: 200,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                  'Access-Control-Allow-Methods': 'GET,OPTIONS,PUT,POST',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  uploadUrl: presignedUrl,
-                  imageId: imageId,
-                  key: key
-                })
-              };
-            } catch (error) {
-              console.error('Error generating upload URL:', error);
-              return {
-                statusCode: 500,
-                headers: {
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                  'Access-Control-Allow-Methods': 'GET,OPTIONS,PUT,POST',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  message: 'Error generating upload URL',
-                  error: error.message
-                })
-              };
-            }
-          };
-
-Outputs:
-  ImageUploadFunctionArn:
-    Description: "ARN of the Image Upload Lambda function"
-    Value: !GetAtt ImageUploadFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-ImageUploadFunctionArn"
-  
-  GetImagesFunctionArn:
-    Description: "ARN of the Get Images Lambda function"
-    Value: !GetAtt GetImagesFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GetImagesFunctionArn"
-  
-  SubmitLabelsFunctionArn:
-    Description: "ARN of the Submit Labels Lambda function"
-    Value: !GetAtt SubmitLabelsFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-SubmitLabelsFunctionArn"
-  
-  UserManagementFunctionArn:
-    Description: "ARN of the User Management Lambda function"
-    Value: !GetAtt UserManagementFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-UserManagementFunctionArn"
-  
-  DashboardMetricsFunctionArn:
-    Description: "ARN of the Dashboard Metrics Lambda function"
-    Value: !GetAtt DashboardMetricsFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-DashboardMetricsFunctionArn"
-
-  GetUploadUrlFunctionArn:
-    Description: "ARN of the Get Upload URL Lambda function"
-    Value: !GetAtt GetUploadUrlFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GetUploadUrlFunctionArn"

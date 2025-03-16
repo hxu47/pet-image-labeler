@@ -41,28 +41,43 @@ echo "Lambda code bucket: $LAMBDA_CODE_BUCKET"
 echo "Uploading Lambda package to S3..."
 aws s3 cp image-processor.zip s3://$LAMBDA_CODE_BUCKET/
 
+# 1. Deploy Cognito resources for authentication
+echo "Deploying Cognito authentication resources..."
+aws cloudformation deploy \
+  --template-file cognito-auth.yaml \
+  --stack-name pet-image-labeling-auth \
+  --capabilities CAPABILITY_IAM
 
-# 1. Deploy DynamoDB tables
+# Get Cognito resource IDs
+USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+IDENTITY_POOL_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='IdentityPoolId'].OutputValue" --output text)
+
+echo "Cognito User Pool ID: $USER_POOL_ID"
+echo "Cognito User Pool Client ID: $USER_POOL_CLIENT_ID"
+echo "Cognito Identity Pool ID: $IDENTITY_POOL_ID"
+
+# 2. Deploy DynamoDB tables
 echo "Deploying DynamoDB tables..."
 aws cloudformation deploy \
   --template-file dynamodb-tables.yaml \
   --stack-name pet-image-labeling-database
 
-# 2. Deploy Lambda functions
+# 3. Deploy Lambda functions
 echo "Deploying Lambda functions..."
 aws cloudformation deploy \
   --template-file lambda-functions.yaml \
   --stack-name pet-image-labeling-functions \
   --parameter-overrides DynamoDBStackName=pet-image-labeling-database LambdaCodeBucket=$LAMBDA_CODE_BUCKET
 
-# 3. Deploy S3 storage
+# 4. Deploy S3 storage
 echo "Deploying S3 storage..."
 aws cloudformation deploy \
   --template-file s3-storage.yaml \
   --stack-name pet-image-labeling-storage \
   --parameter-overrides LambdaStackName=pet-image-labeling-functions
 
-# 4. Deploy API Gateway
+# 5. Deploy API Gateway
 echo "Deploying API Gateway..."
 aws cloudformation deploy \
   --template-file api-gateway.yaml \
@@ -73,18 +88,32 @@ aws cloudformation deploy \
 API_URL=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-api --query "Stacks[0].Outputs[?OutputKey=='ApiURL'].OutputValue" --output text)
 echo "API URL: $API_URL"
 
-# Update config.js 
+# Update config.js with actual values
 echo "export const config = { 
   apiUrl: '$API_URL',
+  cognito: {
+    region: '${AWS::Region}',
+    userPoolId: '$USER_POOL_ID',
+    userPoolClientId: '$USER_POOL_CLIENT_ID',
+    identityPoolId: '$IDENTITY_POOL_ID',
+  },
   labelTypes: [
-    { id: 'breed', name: 'Breed', options: ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'Bulldog', 'Beagle', 'Poodle', 'Other'] },
+    { id: 'type', name: 'Pet Type', options: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Rodent', 'Reptile', 'Fish', 'Other'] },
+    { id: 'breed', name: 'Breed', options: [
+      // Dogs
+      'Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'Bulldog', 'Beagle', 'Poodle',
+      // Cats
+      'Persian', 'Maine Coon', 'Siamese', 'Bengal', 'Ragdoll', 'Sphynx',
+      // Other
+      'Parakeet', 'Cockatiel', 'Lop Rabbit', 'Netherland Dwarf', 'Hamster', 'Guinea Pig', 'Other'
+    ] },
     { id: 'age', name: 'Age', options: ['Kitten/Puppy (0-1 year)', 'Young Adult (1-3 years)', 'Adult (3-7 years)', 'Senior (7+ years)'] },
-    { id: 'coat', name: 'Coat Color', options: ['Black', 'White', 'Brown', 'Tan', 'Gray', 'Mixed'] },
-    { id: 'health', name: 'Health Condition', options: ['None visible', 'Skin condition', 'Eye condition', 'Lameness', 'Overweight', 'Underweight'] }
+    { id: 'coat', name: 'Coat Color', options: ['Black', 'White', 'Brown', 'Tan', 'Gray', 'Orange', 'Calico', 'Tabby', 'Brindle', 'Spotted', 'Mixed'] },
+    { id: 'health', name: 'Health Condition', options: ['None visible', 'Skin condition', 'Eye condition', 'Lameness', 'Dental issue', 'Overweight', 'Underweight'] }
   ]
 };" > pet-image-labeling-webapp/src/config.js
 
-# 5. Deploy web interface CF stack
+# 6. Deploy web interface CF stack
 echo "Deploying web interface CloudFormation stack..."
 aws cloudformation deploy \
   --template-file web-interface.yaml \
@@ -110,7 +139,36 @@ docker push $ECR_REPO:latest
 cd ..
 
 # Update the ECS service to use the new image and set desired count to 1
-aws ecs update-service --no-cli-pager --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --desired-count 1
+aws ecs update-service --no-cli-pager --cluster pet-image-labeling-web-Cluster --service pet-image-labeling-web-service --desired count 1
+
+# Create admin user in Cognito
+echo "Creating admin user in Cognito..."
+ADMIN_EMAIL="admin@petlabeling.com"
+ADMIN_PASSWORD="Admin123!"
+ADMIN_NAME="Administrator"
+
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username $ADMIN_EMAIL \
+  --user-attributes \
+    Name=email,Value=$ADMIN_EMAIL \
+    Name=email_verified,Value=true \
+    Name=name,Value="$ADMIN_NAME"
+
+# Set the admin password
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $USER_POOL_ID \
+  --username $ADMIN_EMAIL \
+  --password $ADMIN_PASSWORD \
+  --permanent
+
+# Add the admin to the Admins group
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username $ADMIN_EMAIL \
+  --group-name Admins
+
+echo "Admin user created with email: $ADMIN_EMAIL and password: $ADMIN_PASSWORD"
 
 echo "Deployment complete. Application should be available soon at the load balancer URL:"
 aws cloudformation describe-stacks --stack-name pet-image-labeling-web --query "Stacks[0].Outputs[?OutputKey=='WebAppURL'].OutputValue" --output text

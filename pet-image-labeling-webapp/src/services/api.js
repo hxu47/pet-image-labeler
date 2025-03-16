@@ -1,19 +1,27 @@
 import axios from 'axios';
 import { config } from '../config';
+import { authService } from './auth';
 
 // Create a base API client
-const apiClient = axios.create({
-  baseURL: config.apiUrl,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+const createApiClient = async () => {
+  // Get the current authentication token
+  const token = await authService.getIdToken();
+  
+  return axios.create({
+    baseURL: config.apiUrl,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  });
+};
 
 // API functions for image operations
 export const imageApi = {
   // Get images with a specific label status
   getImages: async (status = 'unlabeled', limit = 10) => {
     try {
+      const apiClient = await createApiClient();
       const response = await apiClient.get(`/images?status=${status}&limit=${limit}`);
       return response.data;
     } catch (error) {
@@ -25,6 +33,7 @@ export const imageApi = {
   // Upload a new image
   uploadImage: async (file) => {
     try {
+      const apiClient = await createApiClient();
       console.log('Requesting presigned URL for:', file.name);
       
       // Get a presigned URL for S3 upload
@@ -66,10 +75,14 @@ export const imageApi = {
   // Submit labels for an image
   submitLabels: async (imageId, labels) => {
     try {
+      const apiClient = await createApiClient();
+      const currentUser = await authService.getCurrentUser();
+      const userId = currentUser?.username || 'anonymous';
+      
       const response = await apiClient.post('/labels', {
         imageId,
         labels,
-        labeledBy: 'current-user' // In a real app, this would be the authenticated user ID
+        labeledBy: userId
       });
       return response.data;
     } catch (error) {
@@ -83,6 +96,7 @@ export const imageApi = {
 export const dashboardApi = {
   getMetrics: async () => {
     try {
+      const apiClient = await createApiClient();
       const response = await apiClient.get('/metrics');
       return response.data;
     } catch (error) {
@@ -96,6 +110,7 @@ export const dashboardApi = {
 export const userApi = {
   getUsers: async () => {
     try {
+      const apiClient = await createApiClient();
       const response = await apiClient.get('/users');
       return response.data;
     } catch (error) {
@@ -106,10 +121,47 @@ export const userApi = {
   
   createUser: async (userData) => {
     try {
+      const apiClient = await createApiClient();
       const response = await apiClient.post('/users', userData);
       return response.data;
     } catch (error) {
       console.error('Error creating user:', error);
+      throw error;
+    }
+  },
+  
+  getUserProfile: async () => {
+    try {
+      const apiClient = await createApiClient();
+      const currentUser = await authService.getCurrentUser();
+      const userId = currentUser?.username;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      const response = await apiClient.get(`/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw error;
+    }
+  },
+  
+  updateUserProfile: async (profileData) => {
+    try {
+      const apiClient = await createApiClient();
+      const currentUser = await authService.getCurrentUser();
+      const userId = currentUser?.username;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      const response = await apiClient.put(`/users/${userId}`, profileData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
       throw error;
     }
   }
