@@ -21,15 +21,22 @@ echo "Lambda code bucket: $LAMBDA_CODE_BUCKET"
 package_lambda() {
   func_name=$1
   echo "Packaging $func_name Function..."
+  
+  # Check if the directory exists
+  if [ ! -d "lambda/$func_name" ]; then
+    echo "ERROR: Directory lambda/$func_name does not exist"
+    echo "Current directory: $(pwd)"
+    echo "Contents of lambda directory: $(ls -la lambda/)"
+    return 1
+  fi
+  
   mkdir -p /tmp/lambda-package
   cd lambda/$func_name
   npm install
   cp -r * /tmp/lambda-package/
   cd /tmp/lambda-package
-  # Use /tmp which is typically writable
   zip -r /tmp/$func_name.zip ./*
   cd ../../../
-  # Copy the zip from /tmp to current directory if needed
   cp /tmp/$func_name.zip ./
   rm -rf /tmp/lambda-package
 }
