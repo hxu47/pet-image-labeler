@@ -20,15 +20,10 @@ echo "Lambda code bucket: $LAMBDA_CODE_BUCKET"
 # Function to package a Lambda function
 package_lambda() {
   func_name=$1
-  echo "Packaging $func_name Function..."
+  # Save the current directory
+  START_DIR=$(pwd)
   
-  # Check if the directory exists
-  if [ ! -d "lambda/$func_name" ]; then
-    echo "ERROR: Directory lambda/$func_name does not exist"
-    echo "Current directory: $(pwd)"
-    echo "Contents of lambda directory: $(ls -la lambda/)"
-    return 1
-  fi
+  echo "Packaging $func_name Function..."
   
   mkdir -p /tmp/lambda-package
   cd lambda/$func_name
@@ -36,7 +31,10 @@ package_lambda() {
   cp -r * /tmp/lambda-package/
   cd /tmp/lambda-package
   zip -r /tmp/$func_name.zip ./*
-  cd ../../../
+  
+  # Return to the starting directory using the saved path
+  cd $START_DIR
+  
   cp /tmp/$func_name.zip ./
   rm -rf /tmp/lambda-package
 }
