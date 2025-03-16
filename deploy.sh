@@ -75,9 +75,11 @@ aws cloudformation deploy \
 # Get Cognito resource IDs
 USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
 USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+IDENTITY_POOL_ID=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-auth --query "Stacks[0].Outputs[?OutputKey=='IdentityPoolId'].OutputValue" --output text)
 
 echo "Cognito User Pool ID: $USER_POOL_ID"
 echo "Cognito User Pool Client ID: $USER_POOL_CLIENT_ID"
+echo "Cognito Identity Pool ID: $IDENTITY_POOL_ID"
 
 # 2. Deploy SNS topics for notifications
 echo "Deploying SNS notification topics..."
@@ -120,17 +122,39 @@ aws cloudformation deploy \
   --parameter-overrides LambdaStackName=pet-image-labeling-functions
 
 echo "Configuring S3 bucket notification..."
+# Get the S3 bucket name
+S3_BUCKET=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-storage --query "Stacks[0].Outputs[?OutputKey=='RawBucketName'].OutputValue" --output text)
+echo "S3 Bucket: $S3_BUCKET"
+
+# Get the Lambda function ARN
+LAMBDA_ARN=$(aws cloudformation list-exports --query "Exports[?Name=='pet-image-labeling-functions-ImageUploadFunctionArn'].Value" --output text)
+echo "Lambda ARN: $LAMBDA_ARN"
+
+# Verify both values were properly retrieved
+if [ -z "$S3_BUCKET" ] || [ -z "$LAMBDA_ARN" ]; then
+  echo "Error: Failed to retrieve S3 bucket name or Lambda ARN"
+  exit 1
+fi
+
+# Create a JSON file for the notification configuration
+cat > notification.json << EOF
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "LambdaFunctionArn": "$LAMBDA_ARN",
+      "Events": ["s3:ObjectCreated:*"]
+    }
+  ]
+}
+EOF
+
+# Apply the notification configuration
 aws s3api put-bucket-notification-configuration \
-  --bucket $(aws cloudformation describe-stacks --stack-name pet-image-labeling-storage --query "Stacks[0].Outputs[?OutputKey=='RawBucketName'].OutputValue" --output text) \
-  --notification-configuration '{
-    "LambdaFunctionConfigurations": [
-      {
-        "LambdaFunctionArn": "'"$(aws cloudformation describe-stacks --stack-name pet-image-labeling-functions --query "Stacks[0].Exports[?Name=='pet-image-labeling-functions-ImageUploadFunctionArn'].Value" --output text)"'",
-        "Events": ["s3:ObjectCreated:*"]
-      }
-    ]
-  }'
-  
+  --bucket $S3_BUCKET \
+  --notification-configuration file://notification.json
+
+echo "S3 notification configuration applied"
+
 # 6. Deploy API Gateway
 echo "Deploying API Gateway..."
 aws cloudformation deploy \
@@ -146,12 +170,40 @@ echo "API URL: $API_URL"
 
 
 # Update config.js 
-echo "export const config = { 
+# Update config.js with proper Amplify configuration
+cat > pet-image-labeling-webapp/src/config.js << EOF
+// Import Amplify at the top of the file
+import { Amplify, Auth } from 'aws-amplify';
+
+// Configure Amplify
+Amplify.configure({
+  Auth: {
+    region: 'us-east-1',
+    userPoolId: '$USER_POOL_ID',
+    userPoolWebClientId: '$USER_POOL_CLIENT_ID',
+    identityPoolId: '$IDENTITY_POOL_ID'
+  },
+  API: {
+    endpoints: [
+      {
+        name: 'api',
+        endpoint: '$API_URL',
+        custom_header: async () => {
+          return { Authorization: \`Bearer \${(await Auth.currentSession()).getIdToken().getJwtToken()}\` }
+        }
+      }
+    ]
+  }
+});
+
+// Export configuration for use in components
+export const config = { 
   apiUrl: '$API_URL',
   cognito: {
     region: 'us-east-1',
     userPoolId: '$USER_POOL_ID',
-    userPoolClientId: '$USER_POOL_CLIENT_ID'
+    userPoolClientId: '$USER_POOL_CLIENT_ID',
+    identityPoolId: '$IDENTITY_POOL_ID'
   },
   labelTypes: [
     { id: 'type', name: 'Pet Type', options: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Rodent', 'Reptile', 'Fish', 'Other'] },
@@ -167,7 +219,8 @@ echo "export const config = {
     { id: 'coat', name: 'Coat Color', options: ['Black', 'White', 'Brown', 'Tan', 'Gray', 'Orange', 'Calico', 'Tabby', 'Brindle', 'Spotted', 'Mixed'] },
     { id: 'health', name: 'Health Condition', options: ['None visible', 'Skin condition', 'Eye condition', 'Lameness', 'Dental issue', 'Overweight', 'Underweight'] }
   ]
-};" > pet-image-labeling-webapp/src/config.js
+};
+EOF
 
 # 7. Deploy web interface CF stack
 echo "Deploying web interface CloudFormation stack..."
