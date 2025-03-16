@@ -3,6 +3,7 @@ set -e # Exit immediately if a command fails
 
 echo "Cleaning up Docker resources to free space..."
 docker system prune -a -f
+rm -rf /tmp/* 2>/dev/null || true
 
 # Disable AWS CLI pager to prevent interactive less
 export AWS_PAGER=""

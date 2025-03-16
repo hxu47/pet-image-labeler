@@ -8,7 +8,7 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Copy package files and install dependencies with production flag
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci 
 
 # Copy only necessary files
 COPY public ./public
