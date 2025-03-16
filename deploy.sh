@@ -33,50 +33,36 @@ aws cloudformation deploy \
 LAMBDA_CODE_BUCKET=$(aws cloudformation describe-stacks --stack-name pet-image-labeling-lambda-bucket --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
 echo "Lambda code bucket: $LAMBDA_CODE_BUCKET"
 
+# Function to package a Lambda function
+package_lambda() {
+  func_name=$1
+  echo "Packaging $func_name Function..."
+  mkdir -p /tmp/lambda-package
+  cd lambda/$func_name
+  npm install
+  cp -r * /tmp/lambda-package/
+  cd /tmp/lambda-package
+  zip -r ../../../$func_name.zip ./*
+  cd ../../../
+  rm -rf /tmp/lambda-package
+}
+
 # Package Lambda functions
 echo "Packaging Lambda functions..."
 
-# Package Cognito Token Utility Lambda Layer
+# Package Cognito Token Utility Lambda Layer (keep as is - layers have different structure)
 echo "Packaging Cognito Token Utility Layer..."
 cd lambda/cognito-token-util
 npm install
 cd ../..
 zip -r cognito-token-util.zip lambda/cognito-token-util
 
-# Package Submit Labels Lambda Function
-echo "Packaging Submit Labels Function..."
-cd lambda/submit-labels
-npm install
-cd ../..
-zip -r submit-labels.zip lambda/submit-labels
-
-# Package Get Images Lambda Function
-echo "Packaging Get Images Function..."
-cd lambda/get-images
-npm install
-cd ../..
-zip -r get-images.zip lambda/get-images
-
-# Package Dashboard Metrics Lambda Function
-echo "Packaging Dashboard Metrics Function..."
-cd lambda/dashboard-metrics
-npm install
-cd ../..
-zip -r dashboard-metrics.zip lambda/dashboard-metrics
-
-# Package Get Upload URL Lambda Function
-echo "Packaging Get Upload URL Function..."
-cd lambda/get-upload-url
-npm install
-cd ../..
-zip -r get-upload-url.zip lambda/get-upload-url
-
-# Package Image Upload Lambda Function
-echo "Packaging Image Upload Function..."
-cd lambda/image-upload
-npm install
-cd ../..
-zip -r image-upload.zip lambda/image-upload
+# Package other functions
+package_lambda "submit-labels"
+package_lambda "get-images"
+package_lambda "dashboard-metrics"
+package_lambda "get-upload-url"
+package_lambda "image-upload"
 
 # Upload Lambda packages to S3
 echo "Uploading Lambda packages to S3..."
