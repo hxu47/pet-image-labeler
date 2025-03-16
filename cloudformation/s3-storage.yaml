@@ -20,12 +20,7 @@ Resources:
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled
-      NotificationConfiguration:
-        LambdaConfigurations:
-          # tells S3 to trigger the Lambda function whenever a new object is created in the bucket
-          - Event: s3:ObjectCreated:*
-            Function: !ImportValue 
-              'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
+      # Removed NotificationConfiguration to separate resource
   
   PetImagesProcessedBucket:
     Type: AWS::S3::Bucket
@@ -77,6 +72,29 @@ Resources:
             Resource: 
               - !Sub 'arn:aws:s3:::${PetImagesProcessedBucket}'
               - !Sub 'arn:aws:s3:::${PetImagesProcessedBucket}/*'
+  
+  # Lambda permission for S3 trigger
+  LambdaPermissionForS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !ImportValue 
+        'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-pet-images-raw"
+  
+  # S3 Bucket Notification as a separate resource
+  RawBucketNotification:
+    Type: AWS::S3::BucketNotification
+    DependsOn:
+      - LambdaPermissionForS3
+      - RawBucketPolicy
+    Properties:
+      Bucket: !Ref PetImagesRawBucket
+      LambdaConfigurations:
+        - Event: s3:ObjectCreated:*
+          Function: !ImportValue 
+            'Fn::Sub': '${LambdaStackName}-ImageUploadFunctionArn'
 
 Outputs:
   RawBucketName:
@@ -90,4 +108,3 @@ Outputs:
     Value: !Ref PetImagesProcessedBucket
     Export:
       Name: !Sub "${AWS::StackName}-ProcessedBucketName"
-
