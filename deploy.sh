@@ -174,6 +174,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     ApiGatewayStackName=pet-image-labeling-api \
     AuthStackName=pet-image-labeling-auth \
+    InstanceType=t3.medium \
   --capabilities CAPABILITY_IAM
 
 # Get outputs
