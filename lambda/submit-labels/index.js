@@ -1,7 +1,7 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
-const { extractUserFromToken, isLabeler } = require('./cognito-token-util');
+const { extractUserFromToken, isLabeler } = require('/opt/nodejs/cognito-token-util');
 
 exports.handler = async (event) => {
   try {
