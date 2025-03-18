@@ -43,12 +43,13 @@ package_lambda() {
 # Package Lambda functions
 echo "Packaging Lambda functions..."
 
-# Package Cognito Token Utility Lambda Layer (keep as is - layers have different structure)
+# Package Cognito Token Utility Lambda Layer (layers have different structure)
 echo "Packaging Cognito Token Utility Layer..."
-cd lambda/cognito-token-util
-npm install
-cd ../..
-zip -r cognito-token-util.zip lambda/cognito-token-util
+mkdir -p /tmp/cognito-layer/nodejs/node_modules/cognito-token-util
+cp -r lambda/cognito-token-util/* /tmp/cognito-layer/nodejs/node_modules/cognito-token-util/
+cd /tmp/cognito-layer
+zip -r /tmp/cognito-token-util.zip .
+cd -  # Return to original directory
 
 # Package other functions
 package_lambda "submit-labels"
@@ -59,7 +60,7 @@ package_lambda "image-upload"
 
 # Upload Lambda packages to S3
 echo "Uploading Lambda packages to S3..."
-aws s3 cp cognito-token-util.zip s3://$LAMBDA_CODE_BUCKET/
+aws s3 cp /tmp/cognito-token-util.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp submit-labels.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-images.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp dashboard-metrics.zip s3://$LAMBDA_CODE_BUCKET/
