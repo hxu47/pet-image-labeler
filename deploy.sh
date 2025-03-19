@@ -1,13 +1,10 @@
 #!/bin/bash
 set -e # Exit immediately if a command fails
 
-echo "Cleaning up Docker resources to free space..."
-docker system prune -a -f
 rm -rf /tmp/* 2>/dev/null || true
 
 # Disable AWS CLI pager to prevent interactive less
 export AWS_PAGER=""
-
 
 # Deploy the lambda-code-bucket
 aws cloudformation deploy \
@@ -45,11 +42,29 @@ echo "Packaging Lambda functions..."
 
 # Package Cognito Token Utility Lambda Layer (layers have different structure)
 echo "Packaging Cognito Token Utility Layer..."
-mkdir -p /tmp/cognito-layer/nodejs/node_modules/cognito-token-util
-cp -r lambda/cognito-token-util/* /tmp/cognito-layer/nodejs/node_modules/cognito-token-util/
-cd /tmp/cognito-layer
+# Store the original directory path
+ORIGINAL_DIR=$(pwd)
+
+# Create the layer directory structure
+mkdir -p /tmp/cognito-layer/nodejs
+
+# Copy package.json using the absolute path
+cp -r $ORIGINAL_DIR/lambda/cognito-token-util/package.json /tmp/cognito-layer/nodejs/
+
+# Change to the nodejs directory and install dependencies
+cd /tmp/cognito-layer/nodejs
+npm install
+
+# Create node_modules structure and copy utility code
+mkdir -p node_modules/cognito-token-util
+cp -r $ORIGINAL_DIR/lambda/cognito-token-util/* node_modules/cognito-token-util/
+
+# Go back to the layer root and zip it
+cd ..
 zip -r /tmp/cognito-token-util.zip .
-cd -  # Return to original directory
+
+# Return to original directory
+cd $ORIGINAL_DIR
 
 # Package other functions
 package_lambda "submit-labels"
