@@ -41,7 +41,7 @@ package_lambda() {
 package_lambda_layer() {
   layer_name=$1
   source_dir=$2
-  node_modules_prefix=$3  # Optional parameter for node_modules structure
+  node_modules_prefix=$3  #  parameter for node_modules structure
   
   # Save the current directory
   START_DIR=$(pwd)
@@ -59,13 +59,8 @@ package_lambda_layer() {
   npm install
   
   # If node_modules_prefix is provided, create that structure
-  if [ ! -z "$node_modules_prefix" ]; then
-    mkdir -p node_modules/$node_modules_prefix
-    cp -r $START_DIR/lambda/$source_dir/* node_modules/$node_modules_prefix/
-  else
-    # Otherwise just copy the source files directly
-    cp -r $START_DIR/lambda/$source_dir/* ./
-  fi
+  mkdir -p node_modules/$node_modules_prefix
+  cp -r $START_DIR/lambda/$source_dir/* node_modules/$node_modules_prefix/
   
   # Go back to the layer root and zip it
   cd ..
@@ -84,7 +79,7 @@ echo "Packaging Lambda functions..."
 
 # Package layers
 package_lambda_layer "cognito-token-util" "cognito-token-util" "cognito-token-util"
-package_lambda_layer "monitoring-util" "monitoring-util" "" # No node_modules prefix for monitoring-util
+package_lambda_layer "monitoring-util" "monitoring-util" "monitoring-util" 
 
 
 # Package other functions
