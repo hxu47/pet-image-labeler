@@ -40,6 +40,18 @@ Resources:
       CompatibleRuntimes:
         - nodejs18.x
 
+  # Monitoring Utility Lambda Layer
+  MonitoringUtilLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-MonitoringUtil"
+      Description: Monitoring and notification utilities
+      Content:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: monitoring-util.zip
+      CompatibleRuntimes:
+        - nodejs18.x
+
   # Get Images API Handler Lambda Function
   GetImagesFunction:
     Type: AWS::Lambda::Function
@@ -72,6 +84,7 @@ Resources:
       MemorySize: 256
       Layers:
         - !Ref CognitoTokenLayer
+        - !Ref MonitoringUtilLayer
       Environment:
         Variables:
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
@@ -137,6 +150,8 @@ Resources:
       Runtime: nodejs18.x
       Timeout: 30
       MemorySize: 512
+      Layers:
+        - !Ref MonitoringUtilLayer
       Environment:
         Variables:
           RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"

@@ -7,7 +7,7 @@ const {
   notifyImageProcessed, 
   recordMetrics, 
   notifySystemAlert 
-} = require('./utils');
+} = require('monitoring-util');
 
 exports.handler = async (event) => {
   try {

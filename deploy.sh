@@ -37,34 +37,55 @@ package_lambda() {
   rm -rf /tmp/lambda-package
 }
 
+# Function to package a Lambda layer
+package_lambda_layer() {
+  layer_name=$1
+  source_dir=$2
+  node_modules_prefix=$3  # Optional parameter for node_modules structure
+  
+  # Save the current directory
+  START_DIR=$(pwd)
+  
+  echo "Packaging $layer_name Layer..."
+  
+  # Create the layer directory structure
+  mkdir -p /tmp/$layer_name-layer/nodejs
+  
+  # Copy package.json
+  cp -r $START_DIR/lambda/$source_dir/package.json /tmp/$layer_name-layer/nodejs/
+  
+  # Change to the nodejs directory and install dependencies
+  cd /tmp/$layer_name-layer/nodejs
+  npm install
+  
+  # If node_modules_prefix is provided, create that structure
+  if [ ! -z "$node_modules_prefix" ]; then
+    mkdir -p node_modules/$node_modules_prefix
+    cp -r $START_DIR/lambda/$source_dir/* node_modules/$node_modules_prefix/
+  else
+    # Otherwise just copy the source files directly
+    cp -r $START_DIR/lambda/$source_dir/* ./
+  fi
+  
+  # Go back to the layer root and zip it
+  cd ..
+  zip -r /tmp/$layer_name.zip .
+  
+  # Return to original directory
+  cd $START_DIR
+  
+  # Upload to S3
+  echo "Uploading $layer_name Layer to S3..."
+  aws s3 cp /tmp/$layer_name.zip s3://$LAMBDA_CODE_BUCKET/
+}
+
 # Package Lambda functions
 echo "Packaging Lambda functions..."
 
-# Package Cognito Token Utility Lambda Layer (layers have different structure)
-echo "Packaging Cognito Token Utility Layer..."
-# Store the original directory path
-ORIGINAL_DIR=$(pwd)
+# Package layers
+package_lambda_layer "cognito-token-util" "cognito-token-util" "cognito-token-util"
+package_lambda_layer "monitoring-util" "monitoring-util" "" # No node_modules prefix for monitoring-util
 
-# Create the layer directory structure
-mkdir -p /tmp/cognito-layer/nodejs
-
-# Copy package.json using the absolute path
-cp -r $ORIGINAL_DIR/lambda/cognito-token-util/package.json /tmp/cognito-layer/nodejs/
-
-# Change to the nodejs directory and install dependencies
-cd /tmp/cognito-layer/nodejs
-npm install
-
-# Create node_modules structure and copy utility code
-mkdir -p node_modules/cognito-token-util
-cp -r $ORIGINAL_DIR/lambda/cognito-token-util/* node_modules/cognito-token-util/
-
-# Go back to the layer root and zip it
-cd ..
-zip -r /tmp/cognito-token-util.zip .
-
-# Return to original directory
-cd $ORIGINAL_DIR
 
 # Package other functions
 package_lambda "submit-labels"
@@ -75,7 +96,6 @@ package_lambda "image-upload"
 
 # Upload Lambda packages to S3
 echo "Uploading Lambda packages to S3..."
-aws s3 cp /tmp/cognito-token-util.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp submit-labels.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-images.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp dashboard-metrics.zip s3://$LAMBDA_CODE_BUCKET/
