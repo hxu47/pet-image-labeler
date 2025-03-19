@@ -1,18 +1,27 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
-const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const { extractUserFromToken, isLabeler } = require('cognito-token-util');
+const { 
+  logEvent, 
+  notifyLabelsSubmitted, 
+  recordMetrics, 
+  notifySystemAlert 
+} = require('./utils');
 
 exports.handler = async (event) => {
   try {
+    logEvent('FUNCTION_INVOKED', { path: event.path });
+
     // Create clients
     const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
     const docClient = DynamoDBDocumentClient.from(ddbClient);
-    const snsClient = new SNSClient({ region: process.env.AWS_REGION });
     
     // Extract user from Cognito token
     const currentUser = extractUserFromToken(event);
-    console.log('Current user:', currentUser);
+    logEvent('USER_AUTHENTICATED', { 
+      userId: currentUser?.sub,
+      username: currentUser?.name
+    });
     
     // Parse request body
     const requestBody = JSON.parse(event.body);
@@ -37,6 +46,7 @@ exports.handler = async (event) => {
     const canLabel = currentUser ? isLabeler(currentUser) : false;
     
     if (!canLabel) {
+      logEvent('AUTHORIZATION_FAILED', { userId: labeledBy, action: 'label_images' });
       return {
         statusCode: 403,
         headers: {
@@ -67,7 +77,8 @@ exports.handler = async (event) => {
     });
     
     await Promise.all(labelPromises);
-    
+    logEvent('LABELS_SAVED', { imageId, labelCount: labels.length });
+
     // Update image status to 'labeled'
     const updateCommand = new UpdateCommand({
       TableName: process.env.IMAGES_TABLE,
@@ -82,35 +93,23 @@ exports.handler = async (event) => {
     });
     
     await docClient.send(updateCommand);
+    logEvent('IMAGE_STATUS_UPDATED', { imageId, status: 'labeled' });
+
+    // Send notification
+    await notifyLabelsSubmitted(imageId, labels, labeledBy);
     
-    // Send SNS notification about the labeling event
-    if (process.env.LABEL_SUBMISSION_TOPIC_ARN) {
-      try {
-        await snsClient.send(new PublishCommand({
-          TopicArn: process.env.LABEL_SUBMISSION_TOPIC_ARN,
-          Subject: 'New Image Labels Submitted',
-          Message: JSON.stringify({
-            imageId,
-            labelCount: labels.length,
-            labeledBy: userName,
-            timestamp: new Date().toISOString()
-          }),
-          MessageAttributes: {
-            'event_type': {
-              DataType: 'String',
-              StringValue: 'label_submission'
-            },
-            'user_id': {
-              DataType: 'String',
-              StringValue: labeledBy
-            }
-          }
-        }));
-        console.log('SNS notification sent successfully');
-      } catch (snsError) {
-        console.error('Error sending SNS notification:', snsError);
-        // Continue processing even if SNS notification fails
-      }
+    // Record metrics
+    await recordMetrics('LabelsSubmitted', labels.length, [
+      { Name: 'Service', Value: 'LabelProcessor' }
+    ]);
+
+    // Record labels per type metrics
+    const labelTypes = [...new Set(labels.map(label => label.type))];
+    for (const type of labelTypes) {
+      const count = labels.filter(label => label.type === type).length;
+      await recordMetrics(`LabelType_${type}`, count, [
+        { Name: 'Service', Value: 'LabelProcessor' }
+      ]);
     }
     
     return {
@@ -122,7 +121,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: 'Labels submitted successfully' })
     };
   } catch (error) {
-    console.error('Error submitting labels:', error);
+    console.error('Error processing labels:', error);
+    await notifySystemAlert('LabelProcessingError', error.message);
     return {
       statusCode: 500,
       headers: {

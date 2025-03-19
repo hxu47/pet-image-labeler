@@ -6,6 +6,7 @@
     "dependencies": {
       "@aws-sdk/client-dynamodb": "^3.x",
       "@aws-sdk/lib-dynamodb": "^3.x",
-      "@aws-sdk/client-sns": "^3.x"
+      "@aws-sdk/client-sns": "^3.x",
+      "@aws-sdk/client-cloudwatch": "^3.400.0"
     }
   }

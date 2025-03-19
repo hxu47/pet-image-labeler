@@ -181,8 +181,18 @@ aws cloudformation deploy \
     LambdaStackName=pet-image-labeling-functions \
     AuthStackName=pet-image-labeling-auth
 
+# 7. Deploy CloudWatch Monitoring
+echo "Deploying CloudWatch Monitoring..."
+aws cloudformation deploy \
+  --template-file cloudformation/cloudwatch-monitoring.yaml \
+  --stack-name pet-image-labeling-monitoring \
+  --parameter-overrides \
+    SNSStackName=pet-image-labeling-sns \
+    LambdaStackName=pet-image-labeling-functions \
+    S3StackName=pet-image-labeling-storage \
+    DynamoDBStackName=pet-image-labeling-database
 
-# Deploy EC2 Web Server
+# 8. Deploy EC2 Web Server
 echo "Deploying EC2 Web Server..."
 aws cloudformation deploy \
   --template-file cloudformation/ec2-webapp.yaml \
@@ -197,3 +207,5 @@ aws cloudformation deploy \
 echo "Deployment complete!"
 echo "Website URL:"
 aws cloudformation describe-stacks --stack-name pet-image-labeling-ec2 --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" --output text
+echo "CloudWatch Dashboard URL:"
+aws cloudformation describe-stacks --stack-name pet-image-labeling-monitoring --query "Stacks[0].Outputs[?OutputKey=='DashboardURL'].OutputValue" --output text

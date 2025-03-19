@@ -80,6 +80,8 @@ Resources:
             Fn::ImportValue: !Sub "${AuthStackName}-UserPoolId"
           LABEL_SUBMISSION_TOPIC_ARN: 
             Fn::ImportValue: !Sub "${SNSStackName}-LabelSubmissionTopicArn"
+          SYSTEM_ALERTS_TOPIC_ARN:
+            Fn::ImportValue: !Sub "${SNSStackName}-SystemAlertsTopicArn"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: submit-labels.zip
@@ -142,6 +144,8 @@ Resources:
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
           IMAGE_UPLOAD_TOPIC_ARN: 
             Fn::ImportValue: !Sub "${SNSStackName}-ImageUploadTopicArn"
+          SYSTEM_ALERTS_TOPIC_ARN: 
+            Fn::ImportValue: !Sub "${SNSStackName}-SystemAlertsTopicArn"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: image-upload.zip
