@@ -1,0 +1,10 @@
+{
+    "name": "get-user-activity",
+    "version": "1.0.0",
+    "description": "Get user activity data",
+    "main": "index.js",
+    "dependencies": {
+      "@aws-sdk/client-dynamodb": "^3.509.0",
+      "@aws-sdk/lib-dynamodb": "^3.509.0"
+    }
+  }

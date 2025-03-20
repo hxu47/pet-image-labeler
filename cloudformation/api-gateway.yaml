@@ -305,6 +305,108 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # API Gateway Resource: /users/{userId}/statistics
+  UserStatisticsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !Ref UserResource
+      PathPart: "statistics"
+
+  # API Gateway Method: GET /users/{userId}/statistics
+  GetUserStatisticsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UserStatisticsResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-GetUserStatistics/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /users/{userId}/statistics
+  UserStatisticsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UserStatisticsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /users/{userId}/activity
+  UserActivityResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !Ref UserResource
+      PathPart: "activity"
+
+  # API Gateway Method: GET /users/{userId}/activity
+  GetUserActivityMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UserActivityResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-GetUserActivity/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /users/{userId}/activity
+  UserActivityOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref UserActivityResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
   # API Gateway Deployment
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
@@ -319,6 +421,10 @@ Resources:
       - UploadUrlOptionsMethod
       - GetUserMethod
       - UserOptionsMethod
+      - GetUserStatisticsMethod
+      - UserStatisticsOptionsMethod
+      - GetUserActivityMethod
+      - UserActivityOptionsMethod
     Properties:
       RestApiId: !Ref PetLabelingAPI
       StageName: prod
@@ -355,8 +461,8 @@ Resources:
       FunctionName: !Sub "${LambdaStackName}-GetUploadUrl"
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/upload-url"
-      
-  # Lambda permission for the new method
+        
+  # Lambda permission for user endpoints
   GetUserPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -365,6 +471,22 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/users/{userId}"
 
+  GetUserStatisticsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-GetUserStatistics"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/users/{userId}/statistics"
+
+  GetUserActivityPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${LambdaStackName}-GetUserActivity" 
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PetLabelingAPI}/*/GET/users/{userId}/activity"
+        
 Outputs:
   ApiURL:
     Description: "URL of the API Gateway"

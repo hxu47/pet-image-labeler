@@ -165,6 +165,66 @@ Resources:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: image-upload.zip
 
+  # Get User API Handler Lambda Function
+  GetUserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetUser"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          USERS_TABLE: !Sub "${DynamoDBStackName}-Users"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-user.zip
+
+  # Get User Statistics API Handler Lambda Function
+  GetUserStatisticsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetUserStatistics"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          USERS_TABLE: !Sub "${DynamoDBStackName}-Users"
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-user-statistics.zip
+
+  # Get User Activity API Handler Lambda Function
+  GetUserActivityFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetUserActivity"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
+          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-user-activity.zip
+
 Outputs:
   ImageUploadFunctionArn:
     Description: "ARN of the Image Upload Lambda function"
@@ -195,3 +255,21 @@ Outputs:
     Value: !GetAtt GetUploadUrlFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-GetUploadUrlFunctionArn"
+
+  GetUserFunctionArn:
+    Description: "ARN of the Get User Lambda function"
+    Value: !GetAtt GetUserFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetUserFunctionArn"
+  
+  GetUserStatisticsFunctionArn:
+    Description: "ARN of the Get User Statistics Lambda function"
+    Value: !GetAtt GetUserStatisticsFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetUserStatisticsFunctionArn"
+  
+  GetUserActivityFunctionArn:
+    Description: "ARN of the Get User Activity Lambda function"
+    Value: !GetAtt GetUserActivityFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GetUserActivityFunctionArn"
