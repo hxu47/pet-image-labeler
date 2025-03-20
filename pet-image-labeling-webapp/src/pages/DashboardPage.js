@@ -6,7 +6,7 @@ const DashboardPage = () => {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Add this to force refreshes
+  const [refreshKey, setRefreshKey] = useState(0); // Used to force refreshes
 
   // Extract fetchMetrics to a callback so it can be called manually
   const fetchMetrics = useCallback(async () => {
@@ -57,13 +57,11 @@ const DashboardPage = () => {
     console.log("Dashboard page effect running, fetching metrics...");
     fetchMetrics();
     
-    // Refresh metrics every 30 seconds
-    const intervalId = setInterval(() => {
-      console.log("Auto-refresh interval triggered");
-      fetchMetrics();
-    }, 30000);
+    // No automatic refresh interval - removed
     
-    return () => clearInterval(intervalId);
+    return () => {
+      // No cleanup needed since we removed the interval
+    };
   }, [fetchMetrics, refreshKey]); // Add refreshKey as a dependency to force re-fetching
 
   return (

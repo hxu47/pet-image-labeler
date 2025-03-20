@@ -71,9 +71,16 @@ exports.handler = async (event) => {
     
     // Extract the user ID from the object metadata
     let uploadedBy = 'system';
-        
-    if (imageData.Metadata && imageData.Metadata['user-id']) {
-      uploadedBy = imageData.Metadata['user-id'];
+    let uploadedByName = 'System';
+
+    if (imageData.Metadata) {
+      if (imageData.Metadata['user-id']) {
+        uploadedBy = imageData.Metadata['user-id'];
+      }
+      
+      if (imageData.Metadata['user-name']) {
+        uploadedByName = imageData.Metadata['user-name'];
+      }
     }
 
     // Create a record in DynamoDB
@@ -84,6 +91,7 @@ exports.handler = async (event) => {
       thumbnailKey: thumbnailKey,
       uploadedAt: new Date().toISOString(),
       uploadedBy: uploadedBy,   // Use the extracted user ID
+      uploadedByName: uploadedByName, // Include the user name
       labelStatus: 'unlabeled',
       contentType: imageData.ContentType || 'image/jpeg',
       metadata: imageMetadata

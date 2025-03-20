@@ -1,3 +1,4 @@
+// Updated get-upload-url Lambda function
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
@@ -7,18 +8,24 @@ exports.handler = async (event) => {
     const queryParams = event.queryStringParameters || {};
     const filename = queryParams.filename || `upload-${Date.now()}.jpg`;
     
+    // Extract user information from Cognito token
+    let userId = 'anonymous';
+    let userName = 'Anonymous';
+    
+    // Check if we have authorizer data with user info
+    if (event.requestContext && 
+        event.requestContext.authorizer && 
+        event.requestContext.authorizer.claims) {
+      const claims = event.requestContext.authorizer.claims;
+      userId = claims.sub || userId;
+      // Try to get the name from different possible claims
+      userName = claims.name || claims['cognito:username'] || claims.email || userName;
+      console.log('User info from token:', { userId, userName });
+    }
+
     // Generate a random unique ID for the image
     const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     
-    // Extract user ID from Cognito token (from API Gateway authorizer)
-    let userId = 'anonymous';
-    if (event.requestContext && 
-        event.requestContext.authorizer && 
-        event.requestContext.authorizer.claims && 
-        event.requestContext.authorizer.claims.sub) {
-      userId = event.requestContext.authorizer.claims.sub;
-    }
-
     // Create the key using the image ID and original filename
     const key = `uploads/${imageId}/${filename}`;
     
@@ -28,7 +35,8 @@ exports.handler = async (event) => {
       Key: key,
       ContentType: 'image/*',
       Metadata: {
-        'user-id': userId
+        'user-id': userId,
+        'user-name': userName
       }
     });
     
@@ -46,7 +54,9 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         uploadUrl: presignedUrl,
         imageId: imageId,
-        key: key
+        key: key,
+        userId: userId,
+        userName: userName
       })
     };
   } catch (error) {

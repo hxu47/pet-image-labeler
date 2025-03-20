@@ -35,7 +35,13 @@ export const imageApi = {
     try {
       const apiClient = await createApiClient();
       console.log('Requesting presigned URL for:', file.name);
-      
+
+      // Get current user info
+      const currentUser = await authService.getCurrentUser();
+      const userName = currentUser?.attributes?.name || 
+                      currentUser?.username || 
+                      'Anonymous';
+
       // Get a presigned URL for S3 upload
       const presignedUrlResponse = await apiClient.get(`/upload-url?filename=${encodeURIComponent(file.name)}`);
       console.log('Received response:', presignedUrlResponse.data);
