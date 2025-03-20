@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dashboard from '../components/Dashboard';
 import { dashboardApi } from '../services/api';
 
 const DashboardPage = () => {
   const [metrics, setMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Used to force refreshes
 
-  // Extract fetchMetrics to a callback so it can be called manually
-  const fetchMetrics = useCallback(async () => {
+  // Function to fetch metrics
+  const fetchMetrics = async () => {
     try {
       setLoading(true);
       console.log("Fetching dashboard metrics...");
@@ -31,38 +30,25 @@ const DashboardPage = () => {
       console.error('Failed to load dashboard metrics:', err);
       setError('Failed to load dashboard metrics. Please try again later.');
       
-      // If we don't have metrics yet, set an empty structure
-      if (!metrics) {
-        setMetrics({
-          totalImages: 0,
-          labeledImages: 0,
-          unlabeledImages: 0,
-          completionPercentage: 0,
-          labelTypeDistribution: {},
-          recentActivity: []
-        });
-      }
+      // Keep any previously loaded metrics
     } finally {
       setLoading(false);
     }
-  }, [metrics]); // Include metrics in the dependency array
+  };
 
   // Manual refresh function
   const handleRefresh = () => {
     console.log("Manual refresh requested");
-    setRefreshKey(prevKey => prevKey + 1); // Increment refresh key to force re-render
+    fetchMetrics();
   };
 
+  // Initial load
   useEffect(() => {
     console.log("Dashboard page effect running, fetching metrics...");
     fetchMetrics();
     
-    // No automatic refresh interval - removed
-    
-    return () => {
-      // No cleanup needed since we removed the interval
-    };
-  }, [fetchMetrics, refreshKey]); // Add refreshKey as a dependency to force re-fetching
+    // No automatic refresh
+  }, []); // Empty dependency array means this only runs on mount
 
   return (
     <div>
