@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
 exports.handler = async (event) => {
   try {
@@ -100,10 +100,15 @@ exports.handler = async (event) => {
     });
     
     // Get recent label submissions (last 30)
-    const recentLabelsCommand = new ScanCommand({
+    const recentLabelsCommand = new QueryCommand({
       TableName: process.env.LABELS_TABLE,
+      IndexName: 'RecentLabelsIndex',
+      KeyConditionExpression: 'dataType = :type',
+      ExpressionAttributeValues: {
+        ':type': 'label'
+      },
       Limit: 30,
-      ScanIndexForward: false
+      ScanIndexForward: false  // false means descending order (newest first)
     });
     
     const recentLabelsResult = await docClient.send(recentLabelsCommand);

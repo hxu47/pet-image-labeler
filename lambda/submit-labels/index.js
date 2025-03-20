@@ -70,7 +70,8 @@ exports.handler = async (event) => {
           confidence: label.confidence || 1.0,
           labeledBy,
           labeledByName: userName,
-          labeledAt: new Date().toISOString()
+          labeledAt: new Date().toISOString(),
+          dataType: 'label'
         }
       });
       return docClient.send(putCommand);

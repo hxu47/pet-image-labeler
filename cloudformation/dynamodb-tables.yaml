@@ -64,6 +64,10 @@ Resources:
           AttributeType: S
         - AttributeName: labeledBy
           AttributeType: S
+        - AttributeName: dataType
+          AttributeType: S
+        - AttributeName: labeledAt
+          AttributeType: S
       KeySchema:
         - AttributeName: imageId
           KeyType: HASH
@@ -83,6 +87,14 @@ Resources:
             - AttributeName: labeledBy
               KeyType: HASH
             - AttributeName: labelId 
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: RecentLabelsIndex
+          KeySchema:
+            - AttributeName: dataType
+              KeyType: HASH
+            - AttributeName: labeledAt
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
