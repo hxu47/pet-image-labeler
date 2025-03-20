@@ -3,6 +3,7 @@ const { DynamoDBDocumentClient, QueryCommand } = require("@aws-sdk/lib-dynamodb"
 
 exports.handler = async (event) => {
   try {
+    // Get userId from path parameter
     const userId = event.pathParameters.userId;
     
     // Create DynamoDB clients
@@ -20,7 +21,7 @@ exports.handler = async (event) => {
       Select: 'COUNT'
     };
     
-    // Count images labeled by user
+    // Get all labels by this user, but only fetch the imageIds
     const labeledImagesParams = {
       TableName: process.env.LABELS_TABLE,
       IndexName: 'UserLabelsIndex',
@@ -28,21 +29,37 @@ exports.handler = async (event) => {
       ExpressionAttributeValues: {
         ':userId': userId
       },
-      Select: 'COUNT'
+      ProjectionExpression: 'imageId'
     };
     
     const uploadedResult = await docClient.send(new QueryCommand(uploadedImagesParams));
-    let labeledResult;
+    
+    let labeledImages = 0;
+    
     try {
-      labeledResult = await docClient.send(new QueryCommand(labeledImagesParams));
+      // Get all labels created by this user
+      const labeledResult = await docClient.send(new QueryCommand(labeledImagesParams));
+      
+      // Extract unique image IDs using a Set
+      const uniqueImageIds = new Set();
+      if (labeledResult.Items && labeledResult.Items.length > 0) {
+        labeledResult.Items.forEach(item => {
+          if (item.imageId) {
+            uniqueImageIds.add(item.imageId);
+          }
+        });
+      }
+      
+      // Count unique images
+      labeledImages = uniqueImageIds.size;
     } catch (err) {
       console.warn('Error querying labels, setting count to 0:', err);
-      labeledResult = { Count: 0 };
+      labeledImages = 0;
     }
     
     const statistics = {
       imagesUploaded: uploadedResult.Count || 0,
-      imagesLabeled: labeledResult.Count || 0
+      imagesLabeled: labeledImages
     };
     
     return {
