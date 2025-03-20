@@ -88,6 +88,9 @@ package_lambda "get-images"
 package_lambda "dashboard-metrics"
 package_lambda "get-upload-url"
 package_lambda "image-upload"
+package_lambda "get-user"
+package_lambda "get-user-statistics"
+package_lambda "get-user-activity"
 
 # Upload Lambda packages to S3
 echo "Uploading Lambda packages to S3..."
@@ -96,6 +99,9 @@ aws s3 cp get-images.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp dashboard-metrics.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-upload-url.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp image-upload.zip s3://$LAMBDA_CODE_BUCKET/
+aws s3 cp get-user.zip s3://$LAMBDA_CODE_BUCKET/
+aws s3 cp get-user-statistics.zip s3://$LAMBDA_CODE_BUCKET/
+aws s3 cp get-user-activity.zip s3://$LAMBDA_CODE_BUCKET/
 
 # 1. Deploy Cognito resources for authentication
 echo "Deploying Cognito authentication resources..."
