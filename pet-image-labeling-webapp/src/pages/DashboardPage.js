@@ -12,6 +12,16 @@ const DashboardPage = () => {
       try {
         setLoading(true);
         const data = await dashboardApi.getMetrics();
+
+        // Fetch recent activity
+        try {
+          const activityData = await dashboardApi.getRecentActivity();
+          data.recentActivity = activityData;
+        } catch (err) {
+          console.warn('Failed to load activity data', err);
+          data.recentActivity = [];
+        }
+
         setMetrics(data);
         setError(null);
       } catch (err) {
@@ -44,7 +54,8 @@ const DashboardPage = () => {
                 'Senior (7+ years)': 15
               }
             }
-          }
+          },
+          recentActivity: [] // Empty array for recent activity
         });
       } finally {
         setLoading(false);
@@ -54,7 +65,7 @@ const DashboardPage = () => {
     fetchMetrics();
     
     // Refresh metrics every 30 seconds
-    const intervalId = setInterval(fetchMetrics, 30000);
+    // const intervalId = setInterval(fetchMetrics, 30000);
     
     return () => clearInterval(intervalId);
   }, []);

@@ -73,21 +73,21 @@ const Dashboard = ({ metrics }) => {
               Recent Activity
             </div>
             <div className="card-body">
-              <p className="card-text">This panel would display recent activity logs.</p>
-              <ul className="list-group">
-                <li className="list-group-item d-flex justify-content-between align-items-center">
-                  10 new images uploaded
-                  <span className="badge bg-primary rounded-pill">2 mins ago</span>
-                </li>
-                <li className="list-group-item d-flex justify-content-between align-items-center">
-                  15 images labeled
-                  <span className="badge bg-primary rounded-pill">10 mins ago</span>
-                </li>
-                <li className="list-group-item d-flex justify-content-between align-items-center">
-                  New user registered
-                  <span className="badge bg-primary rounded-pill">30 mins ago</span>
-                </li>
-              </ul>
+              {metrics.recentActivity && metrics.recentActivity.length > 0 ? (
+                <ul className="list-group">
+                  {metrics.recentActivity.map((activity, index) => (
+                    <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                      {activity.description}
+                      <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-3">
+                  <i className="bi bi-clock-history text-muted" style={{ fontSize: '2rem' }}></i>
+                  <p className="mt-2 text-muted">No recent activity to display</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

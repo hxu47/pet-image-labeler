@@ -103,6 +103,19 @@ export const dashboardApi = {
       console.error('Error fetching metrics:', error);
       throw error;
     }
+  },
+  
+  // Method to fetch recent activity
+  getRecentActivity: async () => {
+    try {
+      const apiClient = await createApiClient();
+      const response = await apiClient.get('/activity');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      // Return empty array instead of throwing, to make UI more resilient
+      return [];
+    }
   }
 };
 
@@ -164,5 +177,47 @@ export const userApi = {
       console.error('Error updating user profile:', error);
       throw error;
     }
+  },
+
+  getUserStatistics: async () => {
+    try {
+      const apiClient = await createApiClient();
+      const currentUser = await authService.getCurrentUser();
+      const userId = currentUser?.username;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      const response = await apiClient.get(`/users/${userId}/statistics`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user statistics:', error);
+      // Return default values to make UI more resilient
+      return {
+        imagesUploaded: 0,
+        imagesLabeled: 0
+      };
+    }
+  },
+
+  getUserActivity: async () => {
+    try {
+      const apiClient = await createApiClient();
+      const currentUser = await authService.getCurrentUser();
+      const userId = currentUser?.username;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
+      const response = await apiClient.get(`/users/${userId}/activity`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user activity:', error);
+      // Return empty array 
+      return [];
+    }
   }
 };
+

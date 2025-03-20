@@ -35,9 +35,32 @@ const ProfilePage = () => {
               ...apiUserData
             }));
           }
+
+          // Fetch user statistics
+          const stats = await userApi.getUserStatistics();
+          setUserData(prevData => ({
+            ...prevData,
+            stats
+          }));
+          
+          // Fetch user activity
+          const activity = await userApi.getUserActivity();
+          setUserData(prevData => ({
+            ...prevData,
+            recentActivity: activity
+          }));
+
         } catch (err) {
           console.warn('Could not fetch additional user data from API', err);
-          // Not setting an error since we already have basic Cognito data
+          // Set default values for stats and activity
+          setUserData(prevData => ({
+            ...prevData,
+            stats: {
+              imagesUploaded: 0,
+              imagesLabeled: 0
+            },
+            recentActivity: []
+          }));        
         }
         
         setError(null);
@@ -129,27 +152,19 @@ const ProfilePage = () => {
                   <div className="user-stats">
                     <h5>Statistics</h5>
                     <div className="row">
-                      <div className="col-md-4">
+                      <div className="col-md-6">
                         <div className="card text-center mb-3">
                           <div className="card-body">
                             <h6 className="card-title">Images Uploaded</h6>
-                            <p className="card-text fs-4">24</p>
+                            <p className="card-text fs-4">{userData.stats?.imagesUploaded || 0}</p>
                           </div>
                         </div>
                       </div>
-                      <div className="col-md-4">
+                      <div className="col-md-6">
                         <div className="card text-center mb-3">
                           <div className="card-body">
                             <h6 className="card-title">Images Labeled</h6>
-                            <p className="card-text fs-4">142</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="card text-center mb-3">
-                          <div className="card-body">
-                            <h6 className="card-title">Accuracy</h6>
-                            <p className="card-text fs-4">95%</p>
+                            <p className="card-text fs-4">{userData.stats?.imagesLabeled || 0}</p>
                           </div>
                         </div>
                       </div>
@@ -162,35 +177,26 @@ const ProfilePage = () => {
               
               <h5 className="mb-3">Recent Activity</h5>
               <div className="recent-activity">
-                <ul className="list-group">
-                  <li className="list-group-item">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>Labeled an image</strong>
-                        <p className="text-muted mb-0">Golden Retriever, Young Adult</p>
-                      </div>
-                      <span className="badge bg-primary rounded-pill">2 days ago</span>
-                    </div>
-                  </li>
-                  <li className="list-group-item">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>Uploaded a new image</strong>
-                        <p className="text-muted mb-0">cat_playing.jpg</p>
-                      </div>
-                      <span className="badge bg-primary rounded-pill">4 days ago</span>
-                    </div>
-                  </li>
-                  <li className="list-group-item">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>Labeled an image</strong>
-                        <p className="text-muted mb-0">Beagle, Adult</p>
-                      </div>
-                      <span className="badge bg-primary rounded-pill">5 days ago</span>
-                    </div>
-                  </li>
-                </ul>
+                {userData.recentActivity && userData.recentActivity.length > 0 ? (
+                  <ul className="list-group">
+                    {userData.recentActivity.map((activity, index) => (
+                      <li key={index} className="list-group-item">
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <strong>{activity.type}</strong>
+                            <p className="text-muted mb-0">{activity.details}</p>
+                          </div>
+                          <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center py-3">
+                    <i className="bi bi-hourglass text-muted" style={{ fontSize: '2rem' }}></i>
+                    <p className="mt-2 text-muted">No recent activity found</p>
+                  </div>
+                )}
               </div>
               
               <div className="mt-4">
