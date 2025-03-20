@@ -67,7 +67,7 @@ const DashboardPage = () => {
     // Refresh metrics every 30 seconds
     // const intervalId = setInterval(fetchMetrics, 30000);
     
-    return () => clearInterval(intervalId);
+    return () => {}; // {clearInterval(intervalId)}
   }, []);
 
   if (loading) {
