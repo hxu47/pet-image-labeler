@@ -69,6 +69,13 @@ exports.handler = async (event) => {
     await s3Client.send(putThumbnailCommand);
     logEvent('THUMBNAIL_CREATED', { bucket: process.env.PROCESSED_BUCKET, key: thumbnailKey });
     
+    // Extract the user ID from the object metadata
+    let uploadedBy = 'system';
+        
+    if (imageData.Metadata && imageData.Metadata['user-id']) {
+      uploadedBy = imageData.Metadata['user-id'];
+    }
+
     // Create a record in DynamoDB
     const imageId = baseName.split('.')[0];
     const imageRecord = {
@@ -76,7 +83,7 @@ exports.handler = async (event) => {
       originalKey: key,
       thumbnailKey: thumbnailKey,
       uploadedAt: new Date().toISOString(),
-      uploadedBy: 'system', // This would be replaced with actual user ID
+      uploadedBy: uploadedBy,   // Use the extracted user ID
       labelStatus: 'unlabeled',
       contentType: imageData.ContentType || 'image/jpeg',
       metadata: imageMetadata

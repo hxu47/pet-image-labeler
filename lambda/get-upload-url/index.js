@@ -10,6 +10,15 @@ exports.handler = async (event) => {
     // Generate a random unique ID for the image
     const imageId = `img-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     
+    // Extract user ID from Cognito token (from API Gateway authorizer)
+    let userId = 'anonymous';
+    if (event.requestContext && 
+        event.requestContext.authorizer && 
+        event.requestContext.authorizer.claims && 
+        event.requestContext.authorizer.claims.sub) {
+      userId = event.requestContext.authorizer.claims.sub;
+    }
+
     // Create the key using the image ID and original filename
     const key = `uploads/${imageId}/${filename}`;
     
@@ -17,7 +26,10 @@ exports.handler = async (event) => {
     const command = new PutObjectCommand({
       Bucket: process.env.RAW_BUCKET,
       Key: key,
-      ContentType: 'image/*'
+      ContentType: 'image/*',
+      Metadata: {
+        'user-id': userId
+      }
     });
     
     // Generate a presigned URL for uploading the file
