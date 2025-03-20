@@ -17,7 +17,7 @@ exports.handler = async (event) => {
       ExpressionAttributeValues: {
         ':userId': userId
       },
-      Limit: 5,
+      Limit: 10,
       ScanIndexForward: false // Most recent first
     };
     
@@ -29,7 +29,8 @@ exports.handler = async (event) => {
       ExpressionAttributeValues: {
         ':userId': userId
       },
-      ScanIndexForward: false
+      ScanIndexForward: false, // Most recent first
+      Limit: 50 // Get more labels to ensure we capture all labels for each image
     };
     
     const uploadedResult = await docClient.send(new QueryCommand(uploadsParams));
@@ -46,45 +47,84 @@ exports.handler = async (event) => {
       type: 'Uploaded an image',
       details: item.imageId || 'Image',
       timeAgo: formatTimeAgo(item.uploadedAt || Date.now()),
-      timestamp: item.uploadedAt
+      timestamp: new Date(item.uploadedAt || Date.now()).getTime(),
+      sortKey: new Date(item.uploadedAt || Date.now()).getTime() // Explicit sort key
     }));
     
-    // Group labels by imageId and exact timestamp
+    // Group labels by imageId only
     const labelGroups = {};
-    if (labeledResult.Items) {
+    if (labeledResult.Items && labeledResult.Items.length > 0) {
+      console.log(`Found ${labeledResult.Items.length} label items`);
+      
       labeledResult.Items.forEach(item => {
-        // Create a key using imageId and exact timestamp
-        const timestamp = item.createdAt || item.labeledAt || Date.now();
-        const key = `${item.imageId}-${timestamp}`;
+        const imageId = item.imageId;
+        const timestamp = new Date(item.labeledAt || item.createdAt || Date.now()).getTime();
         
-        if (!labelGroups[key]) {
-          labelGroups[key] = {
-            imageId: item.imageId,
-            labels: [],
-            timestamp: new Date(timestamp).getTime()
-          };
+        // Extract any filename or part before the first dot
+        let displayImageId = imageId;
+        if (imageId && imageId.includes('.')) {
+          displayImageId = imageId.split('.')[0];
         }
         
+        // Truncate long IDs
+        if (displayImageId && displayImageId.length > 20) {
+          displayImageId = displayImageId.substring(0, 17) + '...';
+        }
+        
+        // If we haven't seen this image before, create a new group
+        if (!labelGroups[imageId]) {
+          labelGroups[imageId] = {
+            imageId: imageId,
+            displayImageId: displayImageId,
+            labels: [],
+            // Use the most recent timestamp for this image
+            timestamp: timestamp,
+            labelCount: 0
+          };
+        } else {
+          // Update the timestamp if this label has a more recent timestamp
+          if (timestamp > labelGroups[imageId].timestamp) {
+            labelGroups[imageId].timestamp = timestamp;
+          }
+        }
+        
+        // Add the label to the group
+        labelGroups[imageId].labelCount += 1;
+        
         if (item.labelType && item.labelValue) {
-          labelGroups[key].labels.push(`${item.labelType}: ${item.labelValue}`);
+          labelGroups[imageId].labels.push(`${item.labelType}: ${item.labelValue}`);
         }
       });
     }
     
+    console.log(`Grouped into ${Object.keys(labelGroups).length} label groups`);
+    
     // Transform grouped labels to activity format
     const labelActivities = Object.values(labelGroups).map(group => ({
       type: 'Labeled an image',
-      details: group.labels.length > 0 
-        ? `Added ${group.labels.length} ${group.labels.length === 1 ? 'label' : 'labels'} to ${group.imageId.substring(0, 8)}...` 
-        : 'Added labels to image',
+      details: `Added ${group.labelCount} ${group.labelCount === 1 ? 'label' : 'labels'} to ${group.displayImageId}`,
       timeAgo: formatTimeAgo(group.timestamp),
-      timestamp: group.timestamp
+      timestamp: group.timestamp,
+      sortKey: group.timestamp // Explicit sort key
     }));
     
+    console.log(`Created ${labelActivities.length} label activities`);
+    
     // Combine and sort activities
-    const activities = [...uploadActivities, ...labelActivities]
-      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 10); // Get top 10 most recent
+    const activities = [...uploadActivities, ...labelActivities];
+    
+    // Log activity counts
+    console.log(`Total activities before sorting: ${activities.length}`);
+    console.log(`Upload activities: ${uploadActivities.length}`);
+    console.log(`Label activities: ${labelActivities.length}`);
+    
+    // Sort by timestamp (newest first)
+    activities.sort((a, b) => b.sortKey - a.sortKey);
+    
+    // Take the top 10
+    const topActivities = activities.slice(0, 10);
+    
+    console.log(`Returning ${topActivities.length} activities`);
     
     return {
       statusCode: 200,
@@ -92,7 +132,7 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true
       },
-      body: JSON.stringify(activities)
+      body: JSON.stringify(topActivities)
     };
   } catch (error) {
     console.error('Error fetching user activity:', error);
