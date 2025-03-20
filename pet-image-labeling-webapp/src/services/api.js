@@ -96,25 +96,39 @@ export const imageApi = {
 export const dashboardApi = {
   getMetrics: async () => {
     try {
+      console.log("Calling API to fetch dashboard metrics");
       const apiClient = await createApiClient();
       const response = await apiClient.get('/metrics');
+      
+      console.log("API response received:", response.status);
+      
+      // Log both the response data and whether recentActivity exists
+      if (response.data) {
+        console.log("Response data received");
+        if (response.data.recentActivity) {
+          console.log(`Found ${response.data.recentActivity.length} activity entries`);
+        } else {
+          console.warn("No recentActivity property in response data");
+          response.data.recentActivity = []; // Ensure it exists
+        }
+      } else {
+        console.warn("No data in API response");
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error fetching metrics:', error);
+      
+      // Check for specific error types to provide better error messages
+      if (error.response) {
+        console.error('Server response error:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('No response received from server');
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+      
       throw error;
-    }
-  },
-  
-  // Method to fetch recent activity
-  getRecentActivity: async () => {
-    try {
-      const apiClient = await createApiClient();
-      const response = await apiClient.get('/activity');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching recent activity:', error);
-      // Return empty array instead of throwing, to make UI more resilient
-      return [];
     }
   }
 };

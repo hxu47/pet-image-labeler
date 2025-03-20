@@ -1,11 +1,13 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, ScanCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
 exports.handler = async (event) => {
   try {
     // Create clients
     const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
     const docClient = DynamoDBDocumentClient.from(ddbClient);
+    
+    console.log("Starting dashboard metrics generation");
     
     // Get total counts from Images table
     const imagesCountCommand = new ScanCommand({
@@ -15,6 +17,7 @@ exports.handler = async (event) => {
     
     const imagesResult = await docClient.send(imagesCountCommand);
     const totalImages = imagesResult.Count;
+    console.log(`Total images: ${totalImages}`);
     
     // Get counts by label status
     const labeledImagesCommand = new ScanCommand({
@@ -29,6 +32,7 @@ exports.handler = async (event) => {
     const labeledImagesResult = await docClient.send(labeledImagesCommand);
     const labeledImages = labeledImagesResult.Count;
     const unlabeledImages = totalImages - labeledImages;
+    console.log(`Labeled images: ${labeledImages}, Unlabeled images: ${unlabeledImages}`);
     
     // Get label type distribution
     const labelsCommand = new ScanCommand({
@@ -37,6 +41,7 @@ exports.handler = async (event) => {
     });
     
     const labelsResult = await docClient.send(labelsCommand);
+    console.log(`Retrieved ${labelsResult.Items.length} label records`);
     
     // Calculate label type distribution
     const labelTypeDistribution = {};
@@ -57,78 +62,105 @@ exports.handler = async (event) => {
       labelTypeDistribution[item.labelType].values[item.labelValue] += 1;
     });
     
-    // Get recent system activity (from both users and images tables)
-    // First, get recent uploads
+    // ========= SYSTEM ACTIVITY SECTION =========
+    console.log("Fetching system activity data");
+    
+    // Get recent uploads (last 20)
     const recentUploadsCommand = new ScanCommand({
       TableName: process.env.IMAGES_TABLE,
-      ProjectionExpression: 'imageId, uploadedAt, uploadedBy, uploadedByName',
       Limit: 20,
+      ScanIndexForward: false
     });
     
     const recentUploadsResult = await docClient.send(recentUploadsCommand);
+    console.log(`Retrieved ${recentUploadsResult.Items.length} recent uploads`);
     
-    // Get recent label submissions
-    const recentLabelsCommand = new ScanCommand({
-      TableName: process.env.LABELS_TABLE,
-      ProjectionExpression: 'imageId, labeledAt, labeledBy, labeledByName, labelType, labelValue',
-      Limit: 20,
-    });
-    
-    const recentLabelsResult = await docClient.send(recentLabelsCommand);
-    
-    // Combine uploads and labels into a single activity stream
+    // Process uploads into activity format
     const activities = [];
     
-    // Process uploads
     recentUploadsResult.Items.forEach(item => {
       if (item.uploadedAt) {
+        // Format the image ID for display
+        let displayImageId = item.imageId || 'Unknown';
+        if (displayImageId.length > 20) {
+          displayImageId = displayImageId.substring(0, 17) + '...';
+        }
+        
         activities.push({
           type: 'upload',
           description: `${item.uploadedByName || 'User'} uploaded an image`,
+          details: displayImageId,
           imageId: item.imageId,
           userId: item.uploadedBy,
-          userName: item.uploadedByName || 'User',
+          userName: item.uploadedByName || 'Anonymous',
           timestamp: new Date(item.uploadedAt).getTime(),
           timeAgo: formatTimeAgo(item.uploadedAt)
         });
       }
     });
     
-    // Process labels - use a map to group by imageId and exact timestamp
+    // Get recent label submissions (last 30)
+    const recentLabelsCommand = new ScanCommand({
+      TableName: process.env.LABELS_TABLE,
+      Limit: 30,
+      ScanIndexForward: false
+    });
+    
+    const recentLabelsResult = await docClient.send(recentLabelsCommand);
+    console.log(`Retrieved ${recentLabelsResult.Items.length} recent label submissions`);
+    
+    // Group labels by imageId, labeledBy, and timestamp (date only, ignoring time)
     const labelGroups = {};
     
     recentLabelsResult.Items.forEach(item => {
-      if (item.labeledAt) {
-        const key = `${item.imageId}-${item.labeledAt}-${item.labeledBy}`;
+      if (item.labeledAt && item.imageId) {
+        // Create a key using imageId and user
+        const key = `${item.imageId}-${item.labeledBy}`;
+        
+        // Format the image ID for display
+        let displayImageId = item.imageId || 'Unknown';
+        if (displayImageId.length > 20) {
+          displayImageId = displayImageId.substring(0, 17) + '...';
+        }
         
         if (!labelGroups[key]) {
           labelGroups[key] = {
             type: 'label',
             description: `${item.labeledByName || 'User'} labeled an image`,
+            details: displayImageId,
             imageId: item.imageId,
             userId: item.labeledBy,
-            userName: item.labeledByName || 'User',
+            userName: item.labeledByName || 'Anonymous',
             timestamp: new Date(item.labeledAt).getTime(),
             timeAgo: formatTimeAgo(item.labeledAt),
             labelCount: 0
           };
         }
         
+        // Update timestamp if this entry is more recent
+        const timestamp = new Date(item.labeledAt).getTime();
+        if (timestamp > labelGroups[key].timestamp) {
+          labelGroups[key].timestamp = timestamp;
+          labelGroups[key].timeAgo = formatTimeAgo(item.labeledAt);
+        }
+        
         labelGroups[key].labelCount += 1;
       }
     });
     
-    // Add the grouped label activities
+    // Update label descriptions with count and add to activities
     Object.values(labelGroups).forEach(group => {
-      // Update description with label count
       group.description = `${group.userName} added ${group.labelCount} ${group.labelCount === 1 ? 'label' : 'labels'} to an image`;
       activities.push(group);
     });
     
     // Sort by timestamp (newest first) and take the top 10
+    console.log(`Total combined activities: ${activities.length}`);
     const recentActivity = activities
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 10);
+    
+    console.log(`Returning ${recentActivity.length} recent activities`);
     
     // Prepare dashboard metrics
     const metrics = {

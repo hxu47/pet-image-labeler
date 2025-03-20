@@ -5,6 +5,9 @@ const Dashboard = ({ metrics }) => {
     return <div className="text-center">Loading metrics...</div>;
   }
 
+  console.log("Rendering Dashboard with metrics:", metrics);
+  console.log("Activity data:", metrics.recentActivity);
+
   return (
     <div className="dashboard">
       <div className="row mb-4">
@@ -41,29 +44,36 @@ const Dashboard = ({ metrics }) => {
               Label Distribution by Type
             </div>
             <div className="card-body">
-              {Object.keys(metrics.labelTypeDistribution || {}).map(labelType => (
-                <div key={labelType} className="mb-3">
-                  <h6>{labelType} ({metrics.labelTypeDistribution[labelType].total} labels)</h6>
-                  {Object.keys(metrics.labelTypeDistribution[labelType].values || {}).map(value => (
-                    <div key={value} className="mb-2">
-                      <div className="d-flex justify-content-between">
-                        <span>{value}</span>
-                        <span>{metrics.labelTypeDistribution[labelType].values[value]}</span>
+              {Object.keys(metrics.labelTypeDistribution || {}).length > 0 ? (
+                Object.keys(metrics.labelTypeDistribution).map(labelType => (
+                  <div key={labelType} className="mb-3">
+                    <h6>{labelType} ({metrics.labelTypeDistribution[labelType].total} labels)</h6>
+                    {Object.keys(metrics.labelTypeDistribution[labelType].values || {}).map(value => (
+                      <div key={value} className="mb-2">
+                        <div className="d-flex justify-content-between">
+                          <span>{value}</span>
+                          <span>{metrics.labelTypeDistribution[labelType].values[value]}</span>
+                        </div>
+                        <div className="progress">
+                          <div 
+                            className="progress-bar" 
+                            role="progressbar" 
+                            style={{ width: `${(metrics.labelTypeDistribution[labelType].values[value] / metrics.labelTypeDistribution[labelType].total) * 100}%` }}
+                            aria-valuenow={(metrics.labelTypeDistribution[labelType].values[value] / metrics.labelTypeDistribution[labelType].total) * 100}
+                            aria-valuemin="0" 
+                            aria-valuemax="100"
+                          ></div>
+                        </div>
                       </div>
-                      <div className="progress">
-                        <div 
-                          className="progress-bar" 
-                          role="progressbar" 
-                          style={{ width: `${(metrics.labelTypeDistribution[labelType].values[value] / metrics.labelTypeDistribution[labelType].total) * 100}%` }}
-                          aria-valuenow={(metrics.labelTypeDistribution[labelType].values[value] / metrics.labelTypeDistribution[labelType].total) * 100}
-                          aria-valuemin="0" 
-                          aria-valuemax="100"
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-3 text-muted">
+                  <i className="bi bi-bar-chart" style={{ fontSize: '2rem' }}></i>
+                  <p className="mt-2">No label data available yet</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -83,7 +93,12 @@ const Dashboard = ({ metrics }) => {
                         </span>
                         {activity.description}
                         <div className="text-muted small">
-                          <i className="bi bi-person me-1"></i>{activity.userName || 'Anonymous'}
+                          {activity.details && (
+                            <span className="me-2">{activity.details}</span>
+                          )}
+                          {activity.userName && (
+                            <span><i className="bi bi-person me-1"></i>{activity.userName}</span>
+                          )}
                         </div>
                       </div>
                       <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
