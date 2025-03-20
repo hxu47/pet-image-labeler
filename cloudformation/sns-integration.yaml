@@ -38,7 +38,7 @@ Resources:
     Properties:
       TopicArn: !Ref SystemAlertsTopic
       Protocol: email
-      Endpoint: admin@petlabeling.com
+      Endpoint: petmaster5049@gmail.com
 
   # Create a policy to allow Lambda functions to publish to SNS topics
   SNSPublishPolicy:
