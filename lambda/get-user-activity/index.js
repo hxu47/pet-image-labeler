@@ -29,7 +29,6 @@ exports.handler = async (event) => {
       ExpressionAttributeValues: {
         ':userId': userId
       },
-      Limit: 5,
       ScanIndexForward: false
     };
     
@@ -50,12 +49,36 @@ exports.handler = async (event) => {
       timestamp: item.uploadedAt
     }));
     
-    // Transform labels to activity format
-    const labelActivities = (labeledResult.Items || []).map(item => ({
+    // Group labels by imageId and exact timestamp
+    const labelGroups = {};
+    if (labeledResult.Items) {
+      labeledResult.Items.forEach(item => {
+        // Create a key using imageId and exact timestamp
+        const timestamp = item.createdAt || item.labeledAt || Date.now();
+        const key = `${item.imageId}-${timestamp}`;
+        
+        if (!labelGroups[key]) {
+          labelGroups[key] = {
+            imageId: item.imageId,
+            labels: [],
+            timestamp: new Date(timestamp).getTime()
+          };
+        }
+        
+        if (item.labelType && item.labelValue) {
+          labelGroups[key].labels.push(`${item.labelType}: ${item.labelValue}`);
+        }
+      });
+    }
+    
+    // Transform grouped labels to activity format
+    const labelActivities = Object.values(labelGroups).map(group => ({
       type: 'Labeled an image',
-      details: item.labelValues ? item.labelValues.join(', ') : 'Image labeled',
-      timeAgo: formatTimeAgo(item.createdAt || Date.now()),
-      timestamp: item.createdAt
+      details: group.labels.length > 0 
+        ? `Added ${group.labels.length} ${group.labels.length === 1 ? 'label' : 'labels'} to ${group.imageId.substring(0, 8)}...` 
+        : 'Added labels to image',
+      timeAgo: formatTimeAgo(group.timestamp),
+      timestamp: group.timestamp
     }));
     
     // Combine and sort activities

@@ -70,14 +70,22 @@ const Dashboard = ({ metrics }) => {
         <div className="col-md-6">
           <div className="card mb-4">
             <div className="card-header">
-              Recent Activity
+              System Activity
             </div>
             <div className="card-body">
               {metrics.recentActivity && metrics.recentActivity.length > 0 ? (
                 <ul className="list-group">
                   {metrics.recentActivity.map((activity, index) => (
                     <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
-                      {activity.description}
+                      <div>
+                        <span className={`badge me-2 ${activity.type === 'upload' ? 'bg-info' : 'bg-success'}`}>
+                          {activity.type === 'upload' ? 'UPLOAD' : 'LABEL'}
+                        </span>
+                        {activity.description}
+                        <div className="text-muted small">
+                          <i className="bi bi-person me-1"></i>{activity.userName || 'Anonymous'}
+                        </div>
+                      </div>
                       <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
                     </li>
                   ))}
