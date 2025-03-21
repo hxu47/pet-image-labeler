@@ -20,16 +20,23 @@ const LabelingPage = () => {
         // If showing only user's uploads, pass the userId parameter
         const userId = showOnlyMine ? currentUser?.username : null;
         const data = await imageApi.getImages('unlabeled', 12, userId);
+        
+        // Log the first image to check if originalUrl is included
+        if (data.length > 0) {
+          console.log('First image data:', {
+            imageId: data[0].imageId,
+            hasThumbnailUrl: !!data[0].thumbnailUrl,
+            hasOriginalUrl: !!data[0].originalUrl
+          });
+        }
+
         setImages(data);
         setError(null);
       } catch (err) {
         setError('Failed to load images. Please try again later.');
         console.error(err);
         
-        // For demo purposes, set some mock data
-        setImages([
-          // Mock image data...
-        ]);
+        setImages([]);
       } finally {
         setLoading(false);
       }

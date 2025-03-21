@@ -6,10 +6,7 @@ const { DynamoDBDocumentClient, QueryCommand } = require("@aws-sdk/lib-dynamodb"
 
 exports.handler = async (event) => {
     try {
-        // At the beginning of your handler function:
-        console.log('Full event:', JSON.stringify(event));  // Temporarily log the full event
-        console.log('Request context:', JSON.stringify(event.requestContext));  // Log the request context
-
+        
         // Create clients
         const s3Client = new S3Client({ region: process.env.AWS_REGION });
         const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
@@ -64,10 +61,7 @@ exports.handler = async (event) => {
         }
 
         const result = await docClient.send(queryCommand);
-        // After executing the query
-        console.log(`Query returned ${result.Items.length} items`);
-        console.log('First few items:', JSON.stringify(result.Items.slice(0, 2)));
-              
+         
         // Generate presigned URLs for each image
         const imagesWithUrls = await Promise.all(result.Items.map(async (image) => {
           const command = new GetObjectCommand({
@@ -77,9 +71,18 @@ exports.handler = async (event) => {
           
         const thumbnailUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
                 
+        // Create original image URL
+        const originalCommand = new GetObjectCommand({
+          Bucket: process.env.RAW_BUCKET,
+          Key: image.originalKey
+        });
+
+        const originalUrl = await getSignedUrl(s3Client, originalCommand, { expiresIn: 3600 });
+                
         return {
               ...image,
               thumbnailUrl,
+              originalUrl,
               uploadedBy: image.uploadedBy || 'unknown',
               uploadedByName: image.uploadedByName || 'Unknown User'
             };
