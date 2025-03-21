@@ -38,13 +38,14 @@ exports.handler = async (event) => {
         // Query DynamoDB for images with the specified label status
         let queryCommand;
         if (userId) {
-          // If userId is provided, query by user
+          // If userId is provided, query by user AND label status
           queryCommand = new QueryCommand({
             TableName: process.env.IMAGES_TABLE,
             IndexName: 'UserImagesIndex',
             KeyConditionExpression: 'uploadedBy = :userId',
             ExpressionAttributeValues: {
-              ':userId': userId
+              ':userId': userId,
+              ':status': labelStatus
             },
             Limit: limit
           });
