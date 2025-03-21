@@ -5,6 +5,7 @@ import { dashboardApi } from '../services/api';
 const DashboardPage = () => {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
   const [error, setError] = useState(null);
 
   // Function to fetch metrics
@@ -52,24 +53,34 @@ const DashboardPage = () => {
 
   return (
     <div>
+      {/* Dashboard */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Dashboard</h2>
-        <button 
-          className="btn btn-outline-primary" 
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Refreshing...
-            </>
-          ) : (
-            <>
-              <i className="bi bi-arrow-clockwise me-1"></i> Refresh
-            </>
-          )}
-        </button>
+        <div>
+          <button 
+            className={`btn ${showOnlyMine ? 'btn-primary' : 'btn-outline-primary'} me-2`}
+            onClick={() => setShowOnlyMine(!showOnlyMine)}
+          >
+            <i className="bi bi-person-fill me-1"></i> 
+            {showOnlyMine ? 'My Activity' : 'All Activity'}
+          </button>
+          <button 
+            className="btn btn-outline-primary" 
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-arrow-clockwise me-1"></i> Refresh
+              </>
+            )}
+          </button>
+        </div>
       </div>
       
       {error && (
@@ -85,7 +96,7 @@ const DashboardPage = () => {
           </div>
         </div>
       ) : (
-        <Dashboard metrics={metrics} />
+        <Dashboard metrics={metrics} showOnlyMine={showOnlyMine} />
       )}
       
       {/* Display timestamp of last refresh */}

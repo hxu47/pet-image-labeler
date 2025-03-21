@@ -43,12 +43,6 @@ const ProfilePage = () => {
             stats
           }));
           
-          // Fetch user activity
-          const activity = await userApi.getUserActivity();
-          setUserData(prevData => ({
-            ...prevData,
-            recentActivity: activity
-          }));
 
         } catch (err) {
           console.warn('Could not fetch additional user data from API', err);
@@ -58,8 +52,7 @@ const ProfilePage = () => {
             stats: {
               imagesUploaded: 0,
               imagesLabeled: 0
-            },
-            recentActivity: []
+            }
           }));        
         }
         
@@ -174,30 +167,6 @@ const ProfilePage = () => {
               </div>
               
               <hr />
-              
-              <h5 className="mb-3">Recent Activity</h5>
-              <div className="recent-activity">
-                {userData.recentActivity && userData.recentActivity.length > 0 ? (
-                  <ul className="list-group">
-                    {userData.recentActivity.map((activity, index) => (
-                      <li key={index} className="list-group-item">
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <strong>{activity.type}</strong>
-                            <p className="text-muted mb-0">{activity.details}</p>
-                          </div>
-                          <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-center py-3">
-                    <i className="bi bi-hourglass text-muted" style={{ fontSize: '2rem' }}></i>
-                    <p className="mt-2 text-muted">No recent activity found</p>
-                  </div>
-                )}
-              </div>
               
               <div className="mt-4">
                 <button className="btn btn-secondary">

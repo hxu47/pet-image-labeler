@@ -1,6 +1,9 @@
 import React from 'react';
+import { useAuth } from './AuthContext';
 
-const Dashboard = ({ metrics }) => {
+const Dashboard = ({ metrics, showOnlyMine }) => {
+  const { currentUser } = useAuth();
+  
   if (!metrics) {
     return <div className="text-center">Loading metrics...</div>;
   }
@@ -85,24 +88,26 @@ const Dashboard = ({ metrics }) => {
             <div className="card-body">
               {metrics.recentActivity && metrics.recentActivity.length > 0 ? (
                 <ul className="list-group">
-                  {metrics.recentActivity.map((activity, index) => (
-                    <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <span className={`badge me-2 ${activity.type === 'upload' ? 'bg-info' : 'bg-success'}`}>
-                          {activity.type === 'upload' ? 'UPLOAD' : 'LABEL'}
-                        </span>
-                        {activity.description}
-                        <div className="text-muted small">
-                          {activity.details && (
-                            <span className="me-2">{activity.details}</span>
-                          )}
-                          {activity.userName && (
-                            <span><i className="bi bi-person me-1"></i>{activity.userName}</span>
-                          )}
+                  {metrics.recentActivity
+                    .filter(activity => !showOnlyMine || activity.userId === currentUser?.username) // Filter by current user if showOnlyMine is true
+                    .map((activity, index) => (
+                      <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <span className={`badge me-2 ${activity.type === 'upload' ? 'bg-info' : 'bg-success'}`}>
+                            {activity.type === 'upload' ? 'UPLOAD' : 'LABEL'}
+                          </span>
+                          {activity.description}
+                          <div className="text-muted small">
+                            {activity.details && (
+                              <span className="me-2">{activity.details}</span>
+                            )}
+                            {activity.userName && (
+                              <span><i className="bi bi-person me-1"></i>{activity.userName}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
-                    </li>
+                        <span className="badge bg-primary rounded-pill">{activity.timeAgo}</span>
+                      </li>
                   ))}
                 </ul>
               ) : (
