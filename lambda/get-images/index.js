@@ -43,6 +43,7 @@ exports.handler = async (event) => {
             TableName: process.env.IMAGES_TABLE,
             IndexName: 'UserImagesIndex',
             KeyConditionExpression: 'uploadedBy = :userId',
+            FilterExpression: 'labelStatus = :status',
             ExpressionAttributeValues: {
               ':userId': userId,
               ':status': labelStatus
