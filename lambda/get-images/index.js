@@ -44,7 +44,9 @@ exports.handler = async (event) => {
                 
         return {
               ...image,
-              thumbnailUrl
+              thumbnailUrl,
+              uploadedBy: image.uploadedBy || 'unknown',
+              uploadedByName: image.uploadedByName || 'Unknown User'
             };
         }));
               

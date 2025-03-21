@@ -19,10 +19,17 @@ const createApiClient = async () => {
 // API functions for image operations
 export const imageApi = {
   // Get images with a specific label status
-  getImages: async (status = 'unlabeled', limit = 10) => {
+  getImages: async (status = 'unlabeled', limit = 10, userId = null) => {
     try {
       const apiClient = await createApiClient();
-      const response = await apiClient.get(`/images?status=${status}&limit=${limit}`);
+      let url = `/images?status=${status}&limit=${limit}`;
+      
+      // Add userId parameter if provided
+      if (userId) {
+        url += `&userId=${userId}`;
+      }
+      
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error) {
       console.error('Error fetching images:', error);

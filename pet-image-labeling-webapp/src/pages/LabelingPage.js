@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { imageApi } from '../services/api';
 import ImageCard from '../components/ImageCard';
 import LabelForm from '../components/LabelForm';
+import { useAuth } from '../components/AuthContext';
 
 const LabelingPage = () => {
   const [images, setImages] = useState([]);
@@ -9,12 +10,16 @@ const LabelingPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setLoading(true);
-        const data = await imageApi.getImages('unlabeled', 12);
+        // If showing only user's uploads, pass the userId parameter
+        const userId = showOnlyMine ? currentUser?.username : null;
+        const data = await imageApi.getImages('unlabeled', 12, userId);
         setImages(data);
         setError(null);
       } catch (err) {
@@ -23,24 +28,7 @@ const LabelingPage = () => {
         
         // For demo purposes, set some mock data
         setImages([
-          {
-            imageId: 'img123456789',
-            thumbnailUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1',
-            uploadedAt: '2023-01-15T14:30:00Z',
-            labelStatus: 'unlabeled'
-          },
-          {
-            imageId: 'img987654321',
-            thumbnailUrl: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6',
-            uploadedAt: '2023-01-16T10:20:00Z',
-            labelStatus: 'unlabeled'
-          },
-          {
-            imageId: 'img456789123',
-            thumbnailUrl: 'https://images.unsplash.com/photo-1561948955-570b270e7c36',
-            uploadedAt: '2023-01-17T09:15:00Z',
-            labelStatus: 'unlabeled'
-          }
+          // Mock image data...
         ]);
       } finally {
         setLoading(false);
@@ -48,7 +36,7 @@ const LabelingPage = () => {
     };
     
     fetchImages();
-  }, []);
+  }, [showOnlyMine, currentUser]);
 
   const handleSelectImage = (image) => {
     setSelectedImage(image);
@@ -94,7 +82,16 @@ const LabelingPage = () => {
 
   return (
     <div>
-      <h2 className="mb-4">Label Images</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Label Images</h2>
+        <button 
+          className={`btn ${showOnlyMine ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setShowOnlyMine(!showOnlyMine)}
+        >
+          <i className="bi bi-person-fill me-1"></i> 
+          {showOnlyMine ? 'My Uploads' : 'All Images'}
+        </button>
+      </div>
       
       {error && (
         <div className="alert alert-danger" role="alert">
@@ -124,7 +121,9 @@ const LabelingPage = () => {
             ) : (
               <div className="col-12">
                 <div className="alert alert-info" role="alert">
-                  No images available for labeling. All caught up!
+                  {showOnlyMine ? 
+                    "You haven't uploaded any images that need labeling." : 
+                    "No images available for labeling. All caught up!"}
                 </div>
               </div>
             )}
