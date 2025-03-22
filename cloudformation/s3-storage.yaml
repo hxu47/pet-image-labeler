@@ -20,7 +20,8 @@ Resources:
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled
-      # We'll use a custom resource for notifications instead
+      MetricsConfigurations:
+        - Id: EntireBucket
   
   PetImagesProcessedBucket:
     Type: AWS::S3::Bucket
@@ -32,7 +33,9 @@ Resources:
             AllowedMethods: [GET]
             AllowedOrigins: ['*']  # Tighten this for production
             MaxAge: 3600
-
+      MetricsConfigurations:
+        - Id: EntireBucket
+        
   # Policy for the raw images bucket
   RawBucketPolicy:
     Type: AWS::S3::BucketPolicy
