@@ -67,6 +67,7 @@ Resources:
       Environment:
         Variables:
           PROCESSED_BUCKET: !Sub "${S3StorageStackName}-pet-images-processed"
+          RAW_BUCKET: !Sub "${S3StorageStackName}-pet-images-raw"
           IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
       Code:
         S3Bucket: !Ref LambdaCodeBucket
