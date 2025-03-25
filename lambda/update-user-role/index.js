@@ -1,4 +1,4 @@
-// update-user-role/index.js 
+// Lambda function: update-user-role
 const { 
   CognitoIdentityProviderClient, 
   ListUsersCommand, 

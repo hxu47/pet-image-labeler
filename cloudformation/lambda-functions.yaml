@@ -206,26 +206,6 @@ Resources:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: get-user-statistics.zip
 
-  # Get User Activity API Handler Lambda Function
-  GetUserActivityFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-GetUserActivity"
-      Handler: index.handler
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 256
-      Layers:
-        - !Ref CognitoTokenLayer
-      Environment:
-        Variables:
-          IMAGES_TABLE: !Sub "${DynamoDBStackName}-Images"
-          LABELS_TABLE: !Sub "${DynamoDBStackName}-Labels"
-      Code:
-        S3Bucket: !Ref LambdaCodeBucket
-        S3Key: get-user-activity.zip
-
   # Get All Users Lambda Function
   GetAllUsersFunction:
     Type: AWS::Lambda::Function
@@ -309,12 +289,6 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-GetUserStatisticsFunctionArn"
   
-  GetUserActivityFunctionArn:
-    Description: "ARN of the Get User Activity Lambda function"
-    Value: !GetAtt GetUserActivityFunction.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GetUserActivityFunctionArn"
-
   GetAllUsersFunctionArn:
       Description: "ARN of the Get All Users Lambda function"
       Value: !GetAtt GetAllUsersFunction.Arn

@@ -1,3 +1,4 @@
+// Lambda function: monitoring-util
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const { CloudWatchClient, PutMetricDataCommand } = require("@aws-sdk/client-cloudwatch");
 

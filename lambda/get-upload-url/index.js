@@ -1,4 +1,4 @@
-// Updated get-upload-url Lambda function
+// Lambda function: get-upload-url 
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 

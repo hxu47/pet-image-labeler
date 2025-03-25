@@ -90,7 +90,6 @@ package_lambda "get-upload-url"
 package_lambda "image-upload"
 package_lambda "get-user"
 package_lambda "get-user-statistics"
-package_lambda "get-user-activity"
 package_lambda "get-all-users"
 package_lambda "update-user-role"
 
@@ -103,7 +102,6 @@ aws s3 cp get-upload-url.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp image-upload.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-user.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-user-statistics.zip s3://$LAMBDA_CODE_BUCKET/
-aws s3 cp get-user-activity.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-all-users.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp update-user-role.zip s3://$LAMBDA_CODE_BUCKET/
 

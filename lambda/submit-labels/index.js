@@ -1,3 +1,4 @@
+// Lambda function: submit-labels
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 const { extractUserFromToken, isLabeler } = require('cognito-token-util');

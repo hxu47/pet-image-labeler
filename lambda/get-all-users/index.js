@@ -1,4 +1,4 @@
-// get-all-users/index.js 
+// // Lambda function: get-all-users/index.js 
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminListGroupsForUserCommand } = require("@aws-sdk/client-cognito-identity-provider");
 const { extractUserFromToken, isAdmin } = require('cognito-token-util');
 

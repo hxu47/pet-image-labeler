@@ -228,24 +228,6 @@ export const userApi = {
     }
   },
 
-  getUserActivity: async () => {
-    try {
-      const apiClient = await createApiClient();
-      const currentUser = await authService.getCurrentUser();
-      const userId = currentUser?.username;
-      
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-      
-      const response = await apiClient.get(`/users/${userId}/activity`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching user activity:', error);
-      // Return empty array 
-      return [];
-    }
-  }
 };
 
 // API functions for admin operations
