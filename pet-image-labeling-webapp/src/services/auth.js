@@ -14,7 +14,7 @@ Amplify.configure({
 // Authentication service
 export const authService = {
   // Sign up a new user
-  signUp: async (email, password, name, role = 'Labeler') => {
+  signUp: async (email, password, name, role = 'None') => {
     try {
       const { user } = await Auth.signUp({
         username: email,
