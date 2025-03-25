@@ -1,5 +1,5 @@
-// lambda/get-all-users/index.js
-const { CognitoIdentityServiceProvider } = require("@aws-sdk/client-cognito-identity-provider");
+// get-all-users/index.js 
+const { CognitoIdentityProviderClient, ListUsersCommand, AdminListGroupsForUserCommand } = require("@aws-sdk/client-cognito-identity-provider");
 const { extractUserFromToken, isAdmin } = require('cognito-token-util');
 
 exports.handler = async (event) => {
@@ -11,14 +11,16 @@ exports.handler = async (event) => {
         statusCode: 403,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Methods': 'GET,OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
         },
         body: JSON.stringify({ message: 'Unauthorized. Admin access required.' })
       };
     }
     
     // Initialize Cognito client
-    const cognitoClient = new CognitoIdentityServiceProvider({ region: process.env.AWS_REGION });
+    const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
     
     // List users in the Cognito user pool
     const params = {
@@ -26,31 +28,55 @@ exports.handler = async (event) => {
       AttributesToGet: ['sub', 'email', 'name', 'custom:role']
     };
     
-    const usersResponse = await cognitoClient.listUsers(params);
+    const listUsersCommand = new ListUsersCommand(params);
+    const usersResponse = await cognitoClient.send(listUsersCommand);
     
     // Map Cognito users to our required format
-    const users = usersResponse.Users.map(user => {
+    const users = await Promise.all(usersResponse.Users.map(async user => {
       const attributes = {};
       user.Attributes.forEach(attr => {
         attributes[attr.Name] = attr.Value;
       });
+      
+      // Get user groups
+      let groups = [];
+      try {
+        const groupsCommand = new AdminListGroupsForUserCommand({
+          UserPoolId: process.env.USER_POOL_ID,
+          Username: user.Username
+        });
+        const groupsResponse = await cognitoClient.send(groupsCommand);
+        groups = groupsResponse.Groups.map(g => g.GroupName);
+      } catch (err) {
+        console.warn(`Could not fetch groups for user ${user.Username}:`, err);
+      }
+      
+      // Determine role from groups
+      let role = attributes['custom:role'] || 'Viewer';
+      if (groups.includes('Admins')) {
+        role = 'Admin';
+      } else if (groups.includes('Labelers')) {
+        role = 'Labeler';
+      }
       
       return {
         userId: attributes.sub || user.Username,
         username: user.Username,
         email: attributes.email || '',
         name: attributes.name || user.Username,
-        role: attributes['custom:role'] || 'Viewer',
+        role: role,
         status: user.UserStatus,
         enabled: user.Enabled
       };
-    });
+    }));
     
     return {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+        'Access-Control-Allow-Credentials': true,
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
       },
       body: JSON.stringify(users)
     };
@@ -60,9 +86,11 @@ exports.handler = async (event) => {
       statusCode: 500,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+        'Access-Control-Allow-Credentials': true,
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
       },
-      body: JSON.stringify({ error: 'Failed to fetch users' })
+      body: JSON.stringify({ error: 'Failed to fetch users', details: error.message })
     };
   }
 };
