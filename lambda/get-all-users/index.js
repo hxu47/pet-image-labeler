@@ -51,12 +51,19 @@ exports.handler = async (event) => {
         console.warn(`Could not fetch groups for user ${user.Username}:`, err);
       }
       
-      // Determine role from groups
-      let role = attributes['custom:role'] || 'Viewer';
+      // Determine role based on group membership first, then fallback to custom:role attribute
+      let role = 'Viewer'; // Default role if nothing else is specified
+
+      // Check group membership (highest priority)
       if (groups.includes('Admins')) {
         role = 'Admin';
       } else if (groups.includes('Labelers')) {
         role = 'Labeler';
+      } else if (groups.includes('Viewers')) {
+        role = 'Viewer';
+      } else {
+        // Fallback to custom:role attribute if no matching group
+        role = attributes['custom:role'] || 'Viewer';
       }
       
       return {
