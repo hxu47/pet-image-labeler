@@ -248,3 +248,43 @@ export const userApi = {
   }
 };
 
+// API functions for admin operations
+export const adminApi = {
+  getAllUsers: async () => {
+    try {
+      const apiClient = await createApiClient();
+      const response = await apiClient.get('/admin/users');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+      throw error;
+    }
+  },
+  
+  getUserStatistics: async (userId) => {
+    try {
+      const apiClient = await createApiClient();
+      const response = await apiClient.get(`/users/${userId}/statistics`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching statistics for user ${userId}:`, error);
+      // Return default values to make UI more resilient
+      return {
+        imagesUploaded: 0,
+        imagesLabeled: 0
+      };
+    }
+  },
+  
+  updateUserRole: async (userId, newRole) => {
+    try {
+      const apiClient = await createApiClient();
+      const response = await apiClient.post(`/admin/users/${userId}/role`, { role: newRole });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      throw error;
+    }
+  }
+};
+

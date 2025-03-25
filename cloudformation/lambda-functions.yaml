@@ -226,6 +226,46 @@ Resources:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: get-user-activity.zip
 
+  # Get All Users Lambda Function
+  GetAllUsersFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-GetAllUsers"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          USER_POOL_ID: 
+            Fn::ImportValue: !Sub "${AuthStackName}-UserPoolId"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: get-all-users.zip
+
+  # Update User Role Lambda Function
+  UpdateUserRoleFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-UpdateUserRole"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          USER_POOL_ID: 
+            Fn::ImportValue: !Sub "${AuthStackName}-UserPoolId"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: update-user-role.zip
+
 Outputs:
   ImageUploadFunctionArn:
     Description: "ARN of the Image Upload Lambda function"
@@ -274,3 +314,15 @@ Outputs:
     Value: !GetAtt GetUserActivityFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-GetUserActivityFunctionArn"
+
+  GetAllUsersFunctionArn:
+      Description: "ARN of the Get All Users Lambda function"
+      Value: !GetAtt GetAllUsersFunction.Arn
+      Export:
+        Name: !Sub "${AWS::StackName}-GetAllUsersFunctionArn"
+    
+  UpdateUserRoleFunctionArn:
+    Description: "ARN of the Update User Role Lambda function"
+    Value: !GetAtt UpdateUserRoleFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UpdateUserRoleFunctionArn"

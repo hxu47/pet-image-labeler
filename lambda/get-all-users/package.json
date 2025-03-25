@@ -1,0 +1,11 @@
+{
+    "name": "get-all-users",
+    "version": "1.0.0",
+    "description": "Admin function to retrieve all users from Cognito",
+    "main": "index.js",
+    "dependencies": {
+      "@aws-sdk/client-cognito-identity-provider": "^3.400.0",
+      "@aws-sdk/client-dynamodb": "^3.509.0",
+      "@aws-sdk/lib-dynamodb": "^3.509.0"
+    }
+  }

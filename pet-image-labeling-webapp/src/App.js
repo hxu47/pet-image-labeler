@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage';
 import LabelingPage from './pages/LabelingPage';
 import UploadPage from './pages/UploadPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
 import Login from './components/Login';
 import Register from './components/Register';
 import UnauthorizedPage from './components/UnauthorizedPage';
@@ -57,6 +58,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminPage />
                   </ProtectedRoute>
                 } 
               />

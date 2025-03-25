@@ -407,6 +407,74 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # API Gateway Resource: /admin
+    AdminResource:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref PetLabelingAPI
+        ParentId: !GetAtt PetLabelingAPI.RootResourceId
+        PathPart: "admin"
+
+  # API Gateway Resource: /admin/users
+  AdminUsersResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !Ref AdminResource
+      PathPart: "users"
+
+  # API Gateway Method: GET /admin/users
+    GetAllUsersMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref PetLabelingAPI
+        ResourceId: !Ref AdminUsersResource
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref CognitoAuthorizer
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-GetAllUsers/invocations"
+        MethodResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /admin/users/{userId}/role
+  AdminUserRoleResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !Ref AdminUserResource
+      PathPart: "role"
+
+  # API Gateway Method: POST /admin/users/{userId}/role
+  UpdateUserRoleMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ResourceId: !Ref AdminUserRoleResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaStackName}-UpdateUserRole/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway Resource: /admin/users/{userId}
+  AdminUserResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PetLabelingAPI
+      ParentId: !Ref AdminUsersResource
+      PathPart: "{userId}"
+
   # API Gateway Deployment
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
