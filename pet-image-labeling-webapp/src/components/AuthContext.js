@@ -72,6 +72,9 @@ export const AuthProvider = ({ children }) => {
           baseURL: apiClient.defaults.baseURL,
           headers: apiClient.defaults.headers
         });
+        console.log('API request headers include Authorization:', 
+          !!apiClient.defaults.headers.Authorization || 
+          !!apiClient.defaults.headers.common?.Authorization);
 
         // First try to get the user profile
         const userProfileResponse = await apiClient.get(`/users/${userId}`);
@@ -111,7 +114,17 @@ export const AuthProvider = ({ children }) => {
           console.log('Created new user record in DynamoDB after error');
         } catch (createError) {
           console.error('Failed to create user record:', createError);
-          // Continue with login anyway - don't block the user
+          if (createError.response) {
+            console.error('Error creating user - server response:', {
+              status: createError.response.status,
+              data: createError.response.data,
+              headers: createError.response.headers
+            });
+          } else if (createError.request) {
+            console.error('Error creating user - no response received:', createError.request);
+          } else {
+            console.error('Error creating user - request setup error:', createError.message);
+          }
         }
       }
 
@@ -137,7 +150,14 @@ export const AuthProvider = ({ children }) => {
 
   // Get ID token for API calls
   const getToken = async () => {
-    return await authService.getIdToken();
+    const token = await authService.getIdToken();
+    if (token) {
+      const maskedToken = token.substring(0, 10) + "..." + token.substring(token.length - 10);
+      console.log("Auth token available (masked):", maskedToken);
+    } else {
+      console.log("No auth token available");
+    }
+    return getToken;
   };
 
   // Provide the auth context
