@@ -77,7 +77,19 @@ export const AuthProvider = ({ children }) => {
           !!apiClient.defaults.headers.common?.Authorization);
 
         // First try to get the user profile
-        const userProfileResponse = await apiClient.get(`/users/${userId}`);
+        console.log(`About to send GET request to /users/${userId}`);
+        let userProfileResponse;
+        try {
+          userProfileResponse = await apiClient.get(`/users/${userId}`);
+          console.log('GET request successful:', {
+            status: userProfileResponse.status,
+            hasData: !!userProfileResponse.data,
+            dataKeys: userProfileResponse.data ? Object.keys(userProfileResponse.data) : []
+          });
+        } catch (error) {
+          console.error(`GET request to /users/${userId} failed:`, error.message);
+          throw error;  // Re-throw to be caught by the outer catch block
+        }
         
         // If we get an empty response or 404, create the user
         if (!userProfileResponse.data || Object.keys(userProfileResponse.data).length === 0) {
@@ -157,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       console.log("No auth token available");
     }
-    return getToken;
+    return token;
   };
 
   // Provide the auth context
