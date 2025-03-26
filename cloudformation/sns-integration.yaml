@@ -40,6 +40,22 @@ Resources:
       Protocol: email
       Endpoint: petmaster5049@gmail.com
 
+  # Email subscription to image upload topic
+  ImageUploadSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref ImageUploadTopic
+      Protocol: email
+      Endpoint: petmaster5049@gmail.com
+
+  # Email subscription to label submission topic
+  LabelSubmissionSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref LabelSubmissionTopic
+      Protocol: email
+      Endpoint: petmaster5049@gmail.com
+
   # Create a policy to allow Lambda functions to publish to SNS topics
   SNSPublishPolicy:
     Type: AWS::IAM::ManagedPolicy

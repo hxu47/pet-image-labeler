@@ -1,3 +1,4 @@
+// components/AuthContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { authService } from '../services/auth';
 import { createApiClient } from '../services/api';
@@ -80,6 +81,11 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (dbError) {
         // If we get an error (like 404 Not Found), create the user
+        console.error('Error accessing user data:', dbError);
+        // Show more details about the error
+        if (dbError.response) {
+          console.error('Error response:', dbError.response.status, dbError.response.data);
+        }
         console.log('Error or user not found, creating user record:', dbError);
         try {
           const userId = user.username || user.attributes?.sub;
