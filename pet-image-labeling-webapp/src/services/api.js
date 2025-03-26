@@ -3,7 +3,7 @@ import { config } from '../config';
 import { authService } from './auth';
 
 // Create a base API client
-const createApiClient = async () => {
+export const createApiClient = async () => {
   // Get the current authentication token
   const token = await authService.getIdToken();
   
@@ -158,7 +158,7 @@ export const userApi = {
       throw error;
     }
   },
-  
+
   getUsers: async () => {
     try {
       const apiClient = await createApiClient();

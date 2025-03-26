@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
       try {
         // Try to get user from our database
         const userId = user.username || user.attributes?.sub;
-        const apiClient = await createApiClient(); // You'll need to import this from api.js
+        const apiClient = await createApiClient(); 
         
         // First try to get the user profile
         const userProfileResponse = await apiClient.get(`/users/${userId}`);
