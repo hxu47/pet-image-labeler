@@ -1,15 +1,10 @@
 {
-    "name": "create-user-function",
+    "name": "create-user",
     "version": "1.0.0",
-    "description": "Lambda function to create a user in DynamoDB for the Pet Image Labeling System",
+    "description": "Lambda function to create a user in DynamoDB",
     "main": "index.js",
-    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "author": "",
-    "license": "ISC",
     "dependencies": {
-      "@aws-sdk/client-dynamodb": "^3.100.0",
-      "@aws-sdk/lib-dynamodb": "^3.100.0"
+      "@aws-sdk/client-dynamodb": "^3.509.0",
+      "@aws-sdk/lib-dynamodb": "^3.509.0"
     }
   }
