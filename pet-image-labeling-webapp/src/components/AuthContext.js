@@ -62,7 +62,17 @@ export const AuthProvider = ({ children }) => {
         // Try to get user from our database
         const userId = user.username || user.attributes?.sub;
         const apiClient = await createApiClient(); 
-        
+        // test comment
+        console.log('Attempting to create user in DynamoDB:', {
+          userId,
+          name: user.attributes?.name || 'New User',
+          email: user.attributes?.email || ''
+        });
+        console.log('API client created:', {
+          baseURL: apiClient.defaults.baseURL,
+          headers: apiClient.defaults.headers
+        });
+
         // First try to get the user profile
         const userProfileResponse = await apiClient.get(`/users/${userId}`);
         
@@ -71,6 +81,7 @@ export const AuthProvider = ({ children }) => {
           console.log('User not found in DynamoDB, creating new user record');
           
           // Create user record in DynamoDB with basic info
+          console.log('Sending POST request to:', '/users');
           await apiClient.post('/users', {
             userId: userId,
             name: user.attributes?.name || 'New User',
