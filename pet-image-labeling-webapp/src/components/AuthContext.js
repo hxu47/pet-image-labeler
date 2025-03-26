@@ -40,11 +40,12 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     console.log('AuthContext: Starting login process');
     try {
+      // Authenticate with Cognito
       const user = await authService.signIn(email, password);
       console.log('AuthContext: User authenticated successfully:', user);
       setCurrentUser(user);
       
-      // Check if roles are being correctly assessed
+      // Check user roles
       console.log('AuthContext: Checking user roles...');
       const adminStatus = await authService.isAdmin();
       console.log('AuthContext: isAdmin status:', adminStatus);
@@ -54,6 +55,48 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext: isLabeler status:', labelerStatus);
       setIsLabeler(labelerStatus);
       
+      // Check if user exists in DynamoDB and create if not
+      try {
+        // Try to get user from our database
+        const userId = user.username || user.attributes?.sub;
+        const apiClient = await createApiClient(); // You'll need to import this from api.js
+        
+        // First try to get the user profile
+        const userProfileResponse = await apiClient.get(`/users/${userId}`);
+        
+        // If we get an empty response or 404, create the user
+        if (!userProfileResponse.data || Object.keys(userProfileResponse.data).length === 0) {
+          console.log('User not found in DynamoDB, creating new user record');
+          
+          // Create user record in DynamoDB with basic info
+          await apiClient.post('/users', {
+            userId: userId,
+            name: user.attributes?.name || 'New User',
+            email: user.attributes?.email || '',
+            createdAt: new Date().toISOString()
+          });
+          console.log('Created new user record in DynamoDB');
+        }
+      } catch (dbError) {
+        // If we get an error (like 404 Not Found), create the user
+        console.log('Error or user not found, creating user record:', dbError);
+        try {
+          const userId = user.username || user.attributes?.sub;
+          const apiClient = await createApiClient();
+          
+          await apiClient.post('/users', {
+            userId: userId,
+            name: user.attributes?.name || 'New User',
+            email: user.attributes?.email || '',
+            createdAt: new Date().toISOString()
+          });
+          console.log('Created new user record in DynamoDB after error');
+        } catch (createError) {
+          console.error('Failed to create user record:', createError);
+          // Continue with login anyway - don't block the user
+        }
+      }
+
       return user;
     } catch (error) {
       console.error('AuthContext: Login error:', error);

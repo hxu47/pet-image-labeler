@@ -246,6 +246,25 @@ Resources:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: update-user-role.zip
 
+  # Create User Lambda Function
+  CreateUserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-CreateUser"
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 256
+      Layers:
+        - !Ref CognitoTokenLayer
+      Environment:
+        Variables:
+          USERS_TABLE: !Sub "${DynamoDBStackName}-Users"
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: create-user.zip
+
 Outputs:
   ImageUploadFunctionArn:
     Description: "ARN of the Image Upload Lambda function"
@@ -300,3 +319,9 @@ Outputs:
     Value: !GetAtt UpdateUserRoleFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-UpdateUserRoleFunctionArn"
+
+  CreateUserFunctionArn:
+    Description: "ARN of the Create User Lambda function"
+    Value: !GetAtt CreateUserFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-CreateUserFunctionArn"

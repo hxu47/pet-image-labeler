@@ -148,6 +148,17 @@ export const dashboardApi = {
 
 // API functions for user management
 export const userApi = {
+  createUser: async (userData) => {
+    try {
+      const apiClient = await createApiClient();
+      const response = await apiClient.post('/users', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  },
+  
   getUsers: async () => {
     try {
       const apiClient = await createApiClient();

@@ -92,6 +92,7 @@ package_lambda "get-user"
 package_lambda "get-user-statistics"
 package_lambda "get-all-users"
 package_lambda "update-user-role"
+package_lambda "create-user"
 
 # Upload Lambda packages to S3
 echo "Uploading Lambda packages to S3..."
@@ -104,6 +105,7 @@ aws s3 cp get-user.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-user-statistics.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp get-all-users.zip s3://$LAMBDA_CODE_BUCKET/
 aws s3 cp update-user-role.zip s3://$LAMBDA_CODE_BUCKET/
+aws s3 cp create-user.zip s3://$LAMBDA_CODE_BUCKET/
 
 # 1. Deploy Cognito resources for authentication
 echo "Deploying Cognito authentication resources..."
