@@ -92,7 +92,9 @@ export const AuthProvider = ({ children }) => {
         }
         
         // If we get an empty response or 404, create the user
-        if (!userProfileResponse.data || Object.keys(userProfileResponse.data).length === 0) {
+        if (!userProfileResponse.data || 
+          Object.keys(userProfileResponse.data).length === 0 ||
+          (Object.keys(userProfileResponse.data).length === 1 && userProfileResponse.data.userId)) {
           console.log('User not found in DynamoDB, creating new user record');
           
           // Create user record in DynamoDB with basic info
