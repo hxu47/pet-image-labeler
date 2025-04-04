@@ -40,21 +40,16 @@ export const AuthProvider = ({ children }) => {
 
   // Sign in function
   const login = async (email, password) => {
-    console.log('AuthContext: Starting login process');
     try {
       // Authenticate with Cognito
       const user = await authService.signIn(email, password);
-      console.log('AuthContext: User authenticated successfully:', user);
       setCurrentUser(user);
       
       // Check user roles
-      console.log('AuthContext: Checking user roles...');
       const adminStatus = await authService.isAdmin();
-      console.log('AuthContext: isAdmin status:', adminStatus);
       setIsAdmin(adminStatus);
       
       const labelerStatus = await authService.isLabeler();
-      console.log('AuthContext: isLabeler status:', labelerStatus);
       setIsLabeler(labelerStatus);
       
       // Check if user exists in DynamoDB and create if not
@@ -62,30 +57,12 @@ export const AuthProvider = ({ children }) => {
         // Try to get user from our database
         const userId = user.username || user.attributes?.sub;
         const apiClient = await createApiClient(); 
-        // test comment
-        console.log('Attempting to create user in DynamoDB:', {
-          userId,
-          name: user.attributes?.name || 'New User',
-          email: user.attributes?.email || ''
-        });
-        console.log('API client created:', {
-          baseURL: apiClient.defaults.baseURL,
-          headers: apiClient.defaults.headers
-        });
-        console.log('API request headers include Authorization:', 
-          !!apiClient.defaults.headers.Authorization || 
-          !!apiClient.defaults.headers.common?.Authorization);
-
+        
         // First try to get the user profile
-        console.log(`About to send GET request to /users/${userId}`);
         let userProfileResponse;
         try {
           userProfileResponse = await apiClient.get(`/users/${userId}`);
-          console.log('GET request successful:', {
-            status: userProfileResponse.status,
-            hasData: !!userProfileResponse.data,
-            dataKeys: userProfileResponse.data ? Object.keys(userProfileResponse.data) : []
-          });
+          
         } catch (error) {
           console.error(`GET request to /users/${userId} failed:`, error.message);
           throw error;  // Re-throw to be caught by the outer catch block
@@ -95,17 +72,14 @@ export const AuthProvider = ({ children }) => {
         if (!userProfileResponse.data || 
           Object.keys(userProfileResponse.data).length === 0 ||
           (Object.keys(userProfileResponse.data).length === 1 && userProfileResponse.data.userId)) {
-          console.log('User not found in DynamoDB, creating new user record');
           
           // Create user record in DynamoDB with basic info
-          console.log('Sending POST request to:', '/users');
           await apiClient.post('/users', {
             userId: userId,
             name: user.attributes?.name || 'New User',
             email: user.attributes?.email || '',
             createdAt: new Date().toISOString()
           });
-          console.log('Created new user record in DynamoDB');
         }
       } catch (dbError) {
         // If we get an error (like 404 Not Found), create the user
@@ -114,7 +88,6 @@ export const AuthProvider = ({ children }) => {
         if (dbError.response) {
           console.error('Error response:', dbError.response.status, dbError.response.data);
         }
-        console.log('Error or user not found, creating user record:', dbError);
         try {
           const userId = user.username || user.attributes?.sub;
           const apiClient = await createApiClient();
@@ -125,7 +98,6 @@ export const AuthProvider = ({ children }) => {
             email: user.attributes?.email || '',
             createdAt: new Date().toISOString()
           });
-          console.log('Created new user record in DynamoDB after error');
         } catch (createError) {
           console.error('Failed to create user record:', createError);
           if (createError.response) {
@@ -165,12 +137,6 @@ export const AuthProvider = ({ children }) => {
   // Get ID token for API calls
   const getToken = async () => {
     const token = await authService.getIdToken();
-    if (token) {
-      const maskedToken = token.substring(0, 10) + "..." + token.substring(token.length - 10);
-      console.log("Auth token available (masked):", maskedToken);
-    } else {
-      console.log("No auth token available");
-    }
     return token;
   };
 
