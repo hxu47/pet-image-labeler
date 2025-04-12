@@ -22,6 +22,10 @@ Resources:
         Status: Enabled
       MetricsConfigurations:
         - Id: EntireBucket
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
   
   PetImagesProcessedBucket:
     Type: AWS::S3::Bucket
@@ -35,6 +39,10 @@ Resources:
             MaxAge: 3600
       MetricsConfigurations:
         - Id: EntireBucket
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
         
   # Policy for the raw images bucket
   RawBucketPolicy:

@@ -14,6 +14,8 @@ Resources:
       KeySchema:
         - AttributeName: userId
           KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
 
   # Table to store image metadata and labels
   ImagesTable:
@@ -31,6 +33,8 @@ Resources:
       KeySchema:
         - AttributeName: imageId
           KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
       GlobalSecondaryIndexes:
         - IndexName: UserImagesIndex
           KeySchema:
@@ -73,6 +77,8 @@ Resources:
           KeyType: HASH
         - AttributeName: labelId
           KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
       GlobalSecondaryIndexes:
         - IndexName: LabelTypeIndex
           KeySchema:

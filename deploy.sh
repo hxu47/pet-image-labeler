@@ -81,7 +81,6 @@ echo "Packaging Lambda functions..."
 package_lambda_layer "cognito-token-util" "cognito-token-util" "cognito-token-util"
 package_lambda_layer "monitoring-util" "monitoring-util" "monitoring-util" 
 
-
 # Package other functions
 package_lambda "submit-labels"
 package_lambda "get-images"
