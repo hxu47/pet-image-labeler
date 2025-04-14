@@ -6,7 +6,6 @@ Resources:
       BucketName: pet-image-labeling-lambda-packages
       VersioningConfiguration:
         Status: Enabled
-      # Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
 Outputs:
   BucketName:
     Description: "Lambda code bucket name"
