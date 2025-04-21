@@ -18,7 +18,7 @@ The Pet Image Labeling System is a cloud-based application that enables users to
 
 This project utilizes a serverless architecture on AWS:
 
-![Architecture Diagram](https://raw.githubusercontent.com/hxu47/pet-image-labeler/main/images/architecture.png)
+![Architecture Diagram](https://github.com/hxu47/pet-image-labeler/main/images/architecture.png)
 
 ### Frontend
 - React.js application with React Router and Bootstrap
