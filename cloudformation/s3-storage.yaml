@@ -16,7 +16,7 @@ Resources:
         CorsRules:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
-            AllowedOrigins: ['*']  # In production, restrict this to your domain
+            AllowedOrigins: ['*']  
             MaxAge: 3600
       VersioningConfiguration:
         Status: Enabled
@@ -35,7 +35,7 @@ Resources:
         CorsRules:
           - AllowedHeaders: ['*']
             AllowedMethods: [GET]
-            AllowedOrigins: ['*']  # Tighten this for production
+            AllowedOrigins: ['*']  
             MaxAge: 3600
       MetricsConfigurations:
         - Id: EntireBucket

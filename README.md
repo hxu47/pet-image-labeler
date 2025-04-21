@@ -1,70 +1,115 @@
-# Getting Started with Create React App
+# Pet Image Labeling System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack serverless application for uploading, categorizing, and labeling pet images built with React and AWS serverless technologies.
 
-## Available Scripts
+## Project Overview
 
-In the project directory, you can run:
+The Pet Image Labeling System is a cloud-based application that enables users to upload pet images, label them with various attributes (breed, age, coat color, etc.), and view statistics about the labeled images. The system features role-based access control, with different permissions for administrators, labelers, and viewers.
 
-### `npm start`
+### Key Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **User Authentication**: Secure login and registration system with role-based access control
+- **Image Upload**: Upload pet images securely to the cloud
+- **Image Labeling**: Categorize pets by type, breed, age, coat color, and health condition
+- **Real-time Dashboard**: View statistics and metrics about labeled images
+- **Admin Panel**: Manage users and their roles within the system
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Architecture
 
-### `npm test`
+This project utilizes a serverless architecture on AWS:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+![Architecture Diagram](https://raw.githubusercontent.com/hxu47/pet-image-labeler/main/images/architecture.png)
 
-### `npm run build`
+### Frontend
+- React.js application with React Router and Bootstrap
+- AWS Amplify for Authentication
+- Hosted on EC2 with Nginx
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Backend
+- AWS Lambda for serverless compute
+- Amazon API Gateway for RESTful API
+- Amazon S3 for image storage
+- Amazon DynamoDB for database
+- Amazon Cognito for authentication and authorization
+- Amazon SNS for notifications
+- Amazon CloudWatch for monitoring
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Technologies Used
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- **Frontend**: 
+  - React.js
+  - Bootstrap 5
+  - AWS Amplify
+  - Axios
 
-### `npm run eject`
+- **Backend**:
+  - Node.js (Lambda runtime)
+  - AWS SDK for JavaScript
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- **Infrastructure as Code**:
+  - AWS CloudFormation
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Deployment
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+The entire application is deployed using Infrastructure as Code (IaC) with AWS CloudFormation. The deployment script (`deploy.sh`) orchestrates the creation of all required resources in AWS.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Prerequisites
 
-## Learn More
+- AWS CLI configured with appropriate permissions
+- Node.js and npm installed
+- Bash shell environment
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Deployment Steps
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/pet-image-labeler.git
+   cd pet-image-labeler
+   ```
 
-### Code Splitting
+2. Run the deployment script
+   ```bash
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+3. After deployment, the script will output:
+   - The URL of the web application
+   - The URL of the CloudWatch dashboard for monitoring
 
-### Analyzing the Bundle Size
+## Project Structure
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+pet-image-labeler/
+├── cloudformation/         # CloudFormation templates
+│   ├── api-gateway.yaml
+│   ├── cognito-auth.yaml
+│   ├── dynamodb-tables.yaml
+│   ├── lambda-functions.yaml
+│   ├── s3-storage.yaml
+│   └── ...
+├── lambda/                 # Lambda function code
+│   ├── get-images/
+│   ├── submit-labels/
+│   ├── dashboard-metrics/
+│   └── ...
+├── pet-image-labeling-webapp/  # React frontend
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── ...
+│   └── ...
+└── deploy.sh               # Main deployment script
+```
 
-### Making a Progressive Web App
+## Demonstrations
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Infrastructure as Code Walkthrough
+[![IaC Walkthrough]](https://www.canva.com/design/DAGkomhp3jE/mkVwCKVo09HK560z6aEYWQ/watch?utm_content=DAGkomhp3jE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hef4ce3fe3e)
 
-### Advanced Configuration
+### Web Application Demo
+[![Web App Demo]](https://www.canva.com/design/DAGlRimkHJc/qIKl1hbAiwaA6KEODufkVw/watch?utm_content=DAGlRimkHJc&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=ha4c35640f1)
+*Click the image above to watch the web application demonstration*
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
