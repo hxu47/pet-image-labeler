@@ -107,5 +107,10 @@ pet-image-labeler/
 ## Demonstrations
 
 - [Infrastructure as Code Walkthrough](https://www.canva.com/design/DAGkomhp3jE/mkVwCKVo09HK560z6aEYWQ/watch?utm_content=DAGkomhp3jE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hef4ce3fe3e)
+  *Click above to watch the Infrastructure as Code walkthrough video*
+
 - [Web Application Demo](https://www.canva.com/design/DAGlRimkHJc/qIKl1hbAiwaA6KEODufkVw/watch?utm_content=DAGlRimkHJc&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=ha4c35640f1)
+  *Click above to watch the web application demonstration*
+
+
 
