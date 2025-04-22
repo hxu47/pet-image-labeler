@@ -6,6 +6,13 @@ A full-stack serverless application for uploading, categorizing, and labeling pe
 
 The Pet Image Labeling System is a cloud-based application that enables users to upload pet images, label them with various attributes (breed, age, coat color, etc.), and view statistics about the labeled images. The system features role-based access control, with different permissions for administrators, labelers, and viewers.
 
+## Demo Videos
+
+- [Watch the Infrastructure as Code Walkthrough Video](https://www.canva.com/design/DAGkomhp3jE/mkVwCKVo09HK560z6aEYWQ/watch?utm_content=DAGkomhp3jE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hef4ce3fe3e)
+
+- [Watch the Web Application Demo Video](https://www.canva.com/design/DAGlRimkHJc/qIKl1hbAiwaA6KEODufkVw/watch?utm_content=DAGlRimkHJc&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=ha4c35640f1)
+
+
 ### Key Features
 
 - **User Authentication**: Secure login and registration system with role-based access control
@@ -104,13 +111,6 @@ pet-image-labeler/
 └── deploy.sh               # Main deployment script
 ```
 
-## Demonstrations
-
-- [Infrastructure as Code Walkthrough](https://www.canva.com/design/DAGkomhp3jE/mkVwCKVo09HK560z6aEYWQ/watch?utm_content=DAGkomhp3jE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hef4ce3fe3e)
-  *Click to watch the Infrastructure as Code walkthrough video*
-
-- [Web Application Demo](https://www.canva.com/design/DAGlRimkHJc/qIKl1hbAiwaA6KEODufkVw/watch?utm_content=DAGlRimkHJc&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=ha4c35640f1)
-  *Click to watch the web application demonstration*
 
 
 
